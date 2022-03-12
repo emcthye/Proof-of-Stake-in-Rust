@@ -1,0 +1,3 @@
+struct Util;
+
+impl Util {}

@@ -11,7 +11,7 @@ use libp2p::{
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{time::Duration};
+use std::time::Duration;
 use tokio::{
     io::{stdin, AsyncBufReadExt, BufReader},
     select, spawn,
@@ -21,9 +21,10 @@ use tokio::{
 
 const DIFFICULTY_PREFIX: &str = "00";
 
-mod p2p;
 mod account;
+mod p2p;
 mod transaction;
+mod wallet;
 
 pub struct App {
     pub blocks: Vec<Block>,
@@ -53,8 +54,6 @@ impl Block {
         }
     }
 }
-
-
 
 fn calculate_hash(id: u64, timestamp: i64, previous_hash: &str, data: &str, nonce: u64) -> Vec<u8> {
     let data = serde_json::json!({

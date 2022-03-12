@@ -4,14 +4,19 @@ use std::collections::HashMap;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Account {
     pub accounts: Vec<String>,
-    pub balances: HashMap<String, f64>
+    pub balances: HashMap<String, f64>,
 }
 
 impl Account {
     pub fn new() -> Self {
         Self {
-            accounts : vec![String::from("5aad9b5e21f63955e8840e8b954926c60e0e2d906fdbc0ce1e3afe249a67f614")],
-            balances : HashMap::from([(String::from("5aad9b5e21f63955e8840e8b954926c60e0e2d906fdbc0ce1e3afe249a67f614"), 1000.00)])
+            accounts: vec![String::from(
+                "5aad9b5e21f63955e8840e8b954926c60e0e2d906fdbc0ce1e3afe249a67f614",
+            )],
+            balances: HashMap::from([(
+                String::from("5aad9b5e21f63955e8840e8b954926c60e0e2d906fdbc0ce1e3afe249a67f614"),
+                1000.00,
+            )]),
         }
     }
 
@@ -23,7 +28,6 @@ impl Account {
     }
 
     pub fn transfer(&mut self, from: &String, to: &String, amount: f64) {
-        
         self.initialize(from);
         self.initialize(to);
         self.increment(to, amount);
