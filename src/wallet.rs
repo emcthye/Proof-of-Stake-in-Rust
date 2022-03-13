@@ -1,9 +1,10 @@
-use ed25519_dalek::{Keypair, PublicKey, Signature, Signer};
+use ed25519_dalek::{Keypair, Signer, PublicKey};
+use serde::{Deserialize, Serialize};
 use rand::rngs::OsRng;
 
 pub struct Wallet {
     pub balance: f64,
-    pub keyPair: Keypair,
+    pub keyPair: Keypair
 }
 
 impl Wallet {
@@ -11,7 +12,7 @@ impl Wallet {
         let mut csprng = OsRng {};
         Self {
             balance: 100.0,
-            keyPair: Keypair::generate(&mut csprng),
+            keyPair: Keypair::generate(&mut csprng)
         }
     }
 
