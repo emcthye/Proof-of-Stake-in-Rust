@@ -4,24 +4,29 @@ use log::{error, info, warn};
 use crate::block;
 use crate::block::Block;
 use crate::util::Util;
+use crate::wallet::Wallet;
 
 pub struct Blockchain {
     pub blocks: Vec<Block>,
+    pub wallet: Wallet
 }
 
 impl Blockchain {
     pub fn new() -> Self {
-        Self { blocks: vec![] }
+        Self { 
+            blocks: vec![],
+            wallet: Wallet::new()
+        }
     }
 
     pub fn genesis(&mut self) {
-        let genesis_block = Block {
-            id: 0,
-            timestamp: Utc::now().timestamp(),
-            previous_hash: String::from("genesis"),
-            data: String::from("genesis!"),
-            hash: "0000f816a87f806bb0073dcf026a64fb40c946b5abee2573702828694d5b4c43".to_string(),
-        };
+        info!("Creating genesis block...");
+        let genesis_block = Block::new(
+            0,
+            String::from("genesis"),
+            String::from("Genesis Block"),
+            &mut self.wallet
+            );
         self.blocks.push(genesis_block);
     }
 
@@ -51,7 +56,7 @@ impl Blockchain {
                 block.id, previous_block.id
             );
             return false;
-        } else if hex::encode(block::calculate_hash(
+        } else if hex::encode(block::Block::calculate_hash(
             block.id,
             block.timestamp,
             &block.previous_hash,
@@ -64,6 +69,9 @@ impl Blockchain {
         true
     }
 
+    pub fn verify_leader(block: &Block) -> bool {
+    }
+    
     pub fn is_chain_valid(&self, chain: &[Block]) -> bool {
         for i in 0..chain.len() {
             if i == 0 {

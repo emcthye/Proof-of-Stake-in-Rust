@@ -1,8 +1,10 @@
 use chrono::prelude::*;
 use serde::{Deserialize, Serialize};
 use log::{error, info, warn};
-use sha2::{Digest, Sha256};
+use ed25519_dalek::{Signature, PublicKey};
 use crate::util::Util;
+use crate::wallet::Wallet;
+use crate::block;
 
 pub const DIFFICULTY_PREFIX: &str = "00";
 
@@ -12,21 +14,45 @@ pub struct Block {
     pub hash: String,
     pub previous_hash: String,
     pub timestamp: i64,
-    pub data: String
+    pub data: String,
+    pub validator: String,
+    pub signature: String
 }
 
 impl Block {
-    pub fn new(id: u64, previous_hash: String, data: String) -> Self {
-        let now = Utc::now();
-        let (nonce, hash) = mine_block(id, now.timestamp(), &previous_hash, &data);
+
+    pub fn new(id: u64, previous_hash: String, data: String, validator_wallet: &mut Wallet ) -> Self {
+        info!("Creating block...");
+        let timestamp = Utc::now().timestamp();
+        let hash = hex::encode(block::calculate_hash(id, timestamp, &previous_hash, &data));
+        let validator = validator_wallet.getPublicKey();
+        let signature = validator_wallet.sign(&hash);
         Self {
             id,
             hash,
-            timestamp: now.timestamp(),
             previous_hash,
-            data
+            timestamp,
+            data,
+            validator,
+            signature
         }
     }
+
+    pub fn verify_block(block: &Block) -> bool {
+        info!("Verifying block...");
+        let data = serde_json::json!({
+            "id": block.id,
+            "previous_hash": block.previous_hash,
+            "data": block.data,
+            "timestamp": block.timestamp
+        });
+
+        Util::verifySignature(
+            PublicKey::from_bytes(block.validator.as_bytes()).unwrap(), 
+            &data.to_string(), 
+            &Signature::from_bytes(block.signature.as_bytes()).unwrap())
+    }
+
 }
 
 pub fn calculate_hash(id: u64, timestamp: i64, previous_hash: &str, data: &str) -> Vec<u8> {
@@ -37,30 +63,5 @@ pub fn calculate_hash(id: u64, timestamp: i64, previous_hash: &str, data: &str) 
         "timestamp": timestamp
     });
 
-    let mut hasher = Sha256::new();
-    hasher.update(data.to_string().as_bytes());
-    hasher.finalize().as_slice().to_owned()
-}
-
-pub fn mine_block(id: u64, timestamp: i64, previous_hash: &str, data: &str) -> (u64, String) {
-    info!("mining block...");
-    let mut nonce = 0;
-
-    loop {
-        if nonce % 100000 == 0 {
-            info!("nonce: {}", nonce);
-        }
-        let hash = calculate_hash(id, timestamp, previous_hash, data);
-        let binary_hash = Util::hash_to_binary_representation(&hash);
-        if binary_hash.starts_with(DIFFICULTY_PREFIX) {
-            info!(
-                "mined! nonce: {}, hash: {}, binary hash: {}",
-                nonce,
-                hex::encode(&hash),
-                binary_hash
-            );
-            return (nonce, hex::encode(hash));
-        }
-        nonce += 1;
-    }
+    Util::hash(&data.to_string()).as_bytes().to_owned()
 }

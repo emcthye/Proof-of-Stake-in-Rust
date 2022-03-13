@@ -33,7 +33,19 @@ impl Stake {
     }
 
     pub fn get_max(addresses: Vec<String>) -> String {
+        let mut balance = -1;
+        let mut leader = null;
+        addresses.iter().for_each(|addr|
+            if self.balances.get(addr) > balance {
+                balance = self.balances.get(addr);
+                leader = addr;
+            }
+        );
+        leader
+    }
 
+    pub fn update(&mut self, txn: &Transaction) {
+        self.add_stake(&txn.input.from, txn.amount)
     }
 
 //     pub fn transfer(&mut self, from: &String, to: &String, amount: f64) {
