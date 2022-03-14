@@ -1,21 +1,31 @@
 use chrono::prelude::*;
-use serde::{Deserialize, Serialize};
 use log::{error, info, warn};
+use serde::{Deserialize, Serialize};
+
+use crate::account::Account;
 use crate::block;
 use crate::block::Block;
+use crate::stake::Stake;
 use crate::util::Util;
+use crate::validator::Validator;
 use crate::wallet::Wallet;
 
 pub struct Blockchain {
     pub blocks: Vec<Block>,
-    pub wallet: Wallet
+    pub wallet: Wallet,
+    pub accounts: Account,
+    pub stakes: Stake,
+    pub validators: Validator,
 }
 
 impl Blockchain {
-    pub fn new() -> Self {
-        Self { 
+    pub fn new(wallet: Wallet) -> Self {
+        Self {
             blocks: vec![],
-            wallet: Wallet::new()
+            wallet: wallet,
+            accounts: Account::new(),
+            stakes: Stake::new(),
+            validators: Validator::new(),
         }
     }
 
@@ -25,8 +35,8 @@ impl Blockchain {
             0,
             String::from("genesis"),
             String::from("Genesis Block"),
-            &mut self.wallet
-            );
+            &mut self.wallet,
+        );
         self.blocks.push(genesis_block);
     }
 
@@ -56,11 +66,11 @@ impl Blockchain {
                 block.id, previous_block.id
             );
             return false;
-        } else if hex::encode(block::Block::calculate_hash(
+        } else if hex::encode(block::calculate_hash(
             block.id,
             block.timestamp,
             &block.previous_hash,
-            &block.data
+            &block.data,
         )) != block.hash
         {
             warn!("block with id: {} has invalid hash", block.id);
@@ -69,9 +79,10 @@ impl Blockchain {
         true
     }
 
-    pub fn verify_leader(block: &Block) -> bool {
+    pub fn verify_leader(&mut self, block: &Block) -> bool {
+        self.stakes.get_max(&self.validators.accounts) == block.validator
     }
-    
+
     pub fn is_chain_valid(&self, chain: &[Block]) -> bool {
         for i in 0..chain.len() {
             if i == 0 {
