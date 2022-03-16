@@ -6,12 +6,13 @@ use crate::account::Account;
 use crate::block;
 use crate::block::Block;
 use crate::stake::Stake;
+use crate::transaction::Transaction;
 use crate::util::Util;
 use crate::validator::Validator;
 use crate::wallet::Wallet;
 
 pub struct Blockchain {
-    pub blocks: Vec<Block>,
+    pub chain: Vec<Block>,
     pub wallet: Wallet,
     pub accounts: Account,
     pub stakes: Stake,
@@ -21,7 +22,7 @@ pub struct Blockchain {
 impl Blockchain {
     pub fn new(wallet: Wallet) -> Self {
         Self {
-            blocks: vec![],
+            chain: vec![],
             wallet: wallet,
             accounts: Account::new(),
             stakes: Stake::new(),
@@ -37,13 +38,45 @@ impl Blockchain {
             String::from("Genesis Block"),
             &mut self.wallet,
         );
-        self.blocks.push(genesis_block);
+        self.chain.push(genesis_block);
+    }
+
+    pub fn create_block(&mut self, txns: &Vec<Transaction>) -> Block {
+        let block = Block::new(
+            self.chain.len(),
+            self.chain.last().unwrap().hash,
+            serde_json::to_string(txns).unwrap(),
+            &mut self.wallet,
+        );
+
+        self.chain.push(block);
+        block
+    }
+
+    pub fn is_valid_block(&mut self, block: &Block) {
+        if block.previous_hash == self.chain.last().unwrap().hash
+            && block.hash
+                == block::calculate_hash(
+                    &block.id,
+                    &block.timestamp,
+                    &block.previous_hash,
+                    &block.data,
+                )
+            && Block::verify_block_signature(block)
+            && self.verify_leader(block)
+        {
+            self.chain.push(block);
+        }
+    }
+
+    pub fn execute_txn(block: &Block) {
+        let txns = serde_json::from_str(&block.data).unwrap();
     }
 
     pub fn try_add_block(&mut self, block: Block) {
-        let latest_block = self.blocks.last().expect("there is at least one block");
+        let latest_block = self.chain.last().expect("there is at least one block");
         if self.is_block_valid(&block, latest_block) {
-            self.blocks.push(block);
+            self.chain.push(block);
         } else {
             error!("could not add block - invalid");
         }
@@ -67,8 +100,8 @@ impl Blockchain {
             );
             return false;
         } else if hex::encode(block::calculate_hash(
-            block.id,
-            block.timestamp,
+            &block.id,
+            &block.timestamp,
             &block.previous_hash,
             &block.data,
         )) != block.hash
