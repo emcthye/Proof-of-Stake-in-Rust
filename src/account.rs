@@ -27,18 +27,18 @@ impl Account {
         }
     }
 
-    pub fn transfer(&mut self, from: &String, to: &String, amount: f64) {
+    pub fn transfer(&mut self, from: &String, to: &String, amount: &f64) {
         self.initialize(from);
         self.initialize(to);
         self.increment(to, amount);
         self.decrement(from, amount);
     }
 
-    fn increment(&mut self, to: &String, amount: f64) {
+    pub fn increment(&mut self, to: &String, amount: &f64) {
         (*self.balances.get_mut(to).unwrap()) += amount;
     }
 
-    fn decrement(&mut self, from: &String, amount: f64) {
+    pub fn decrement(&mut self, from: &String, amount: &f64) {
         (*self.balances.get_mut(from).unwrap()) -= amount;
     }
 

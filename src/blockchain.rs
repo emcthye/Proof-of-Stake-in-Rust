@@ -6,7 +6,7 @@ use crate::account::Account;
 use crate::block;
 use crate::block::Block;
 use crate::stake::Stake;
-use crate::transaction::Transaction;
+use crate::transaction::*;
 use crate::util::Util;
 use crate::validator::Validator;
 use crate::wallet::Wallet;
@@ -30,47 +30,83 @@ impl Blockchain {
         }
     }
 
-    pub fn genesis(&mut self) {
+    pub fn genesis(&mut self) -> Block {
         info!("Creating genesis block...");
-        let genesis_block = Block::new(
-            0,
-            String::from("genesis"),
-            String::from("Genesis Block"),
-            &mut self.wallet,
-        );
-        self.chain.push(genesis_block);
+        Block::new(0, String::from("genesis"), vec![], &mut self.wallet)
     }
 
-    pub fn create_block(&mut self, txns: &Vec<Transaction>) -> Block {
+    pub fn create_block(&mut self, txns: Vec<Transaction>) -> Block {
         let block = Block::new(
             self.chain.len(),
             self.chain.last().unwrap().hash,
-            serde_json::to_string(txns).unwrap(),
+            txns,
             &mut self.wallet,
         );
-
-        self.chain.push(block);
         block
     }
 
-    pub fn is_valid_block(&mut self, block: &Block) {
+    pub fn is_valid_block(&mut self, block: Block) {
         if block.previous_hash == self.chain.last().unwrap().hash
             && block.hash
                 == block::calculate_hash(
                     &block.id,
                     &block.timestamp,
                     &block.previous_hash,
-                    &block.data,
+                    &block.txn,
                 )
-            && Block::verify_block_signature(block)
-            && self.verify_leader(block)
+            && Block::verify_block_signature(&block)
+            && self.verify_leader(&block)
         {
             self.chain.push(block);
         }
     }
 
-    pub fn execute_txn(block: &Block) {
-        let txns = serde_json::from_str(&block.data).unwrap();
+    pub fn is_valid_chain(&mut self, chain: &Vec<Block>) -> bool {
+        *chain.first().unwrap() == self.genesis()
+    }
+
+    pub fn execute_txn(&mut self, block: &Block) {
+        block.txn.iter().for_each(|txn| match txn.txn_type {
+            TransactionType::TRANSACTION => {
+                // Transfer amount
+                self.accounts.transfer(
+                    &txn.txn_input.from,
+                    &txn.txn_output.to,
+                    &txn.txn_output.amount,
+                );
+                // Transfer fee
+                self.accounts
+                    .transfer(&txn.txn_input.from, &block.validator, &txn.txn_output.fee);
+            }
+            TransactionType::STAKE => {
+                self.stakes.update(&txn);
+                self.accounts
+                    .decrement(&txn.txn_input.from, &txn.txn_output.amount);
+                // Transfer fee
+                self.accounts
+                    .transfer(&txn.txn_input.from, &block.validator, &txn.txn_output.fee);
+            }
+            TransactionType::VALIDATOR => {
+                if self.validators.update(&txn) {
+                    self.accounts
+                        .decrement(&txn.txn_input.from, &txn.txn_output.amount);
+                    // Transfer fee
+                    self.accounts.transfer(
+                        &txn.txn_input.from,
+                        &block.validator,
+                        &txn.txn_output.fee,
+                    );
+                }
+            }
+        });
+    }
+
+    pub fn execute_chain(&mut self, chain: &Vec<Block>) {
+        chain.iter().for_each(|block| self.execute_txn(block));
+    }
+
+    pub fn verify_leader(&mut self, block: &Block) -> bool {
+        self.stakes.get_max(&self.validators.accounts) == block.validator
     }
 
     pub fn try_add_block(&mut self, block: Block) {
@@ -103,17 +139,13 @@ impl Blockchain {
             &block.id,
             &block.timestamp,
             &block.previous_hash,
-            &block.data,
+            &block.txn,
         )) != block.hash
         {
             warn!("block with id: {} has invalid hash", block.id);
             return false;
         }
         true
-    }
-
-    pub fn verify_leader(&mut self, block: &Block) -> bool {
-        self.stakes.get_max(&self.validators.accounts) == block.validator
     }
 
     pub fn is_chain_valid(&self, chain: &[Block]) -> bool {
