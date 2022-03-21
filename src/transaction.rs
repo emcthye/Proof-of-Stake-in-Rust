@@ -7,13 +7,13 @@ use uuid::Uuid;
 
 const TRANSACTION_FEE: f64 = 1.0;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum TransactionType {
     TRANSACTION,
     STAKE,
     VALIDATOR,
 }
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransactionInput {
     pub timestamp: i64,
     pub from: String,
@@ -24,13 +24,13 @@ impl TransactionInput {
     pub fn new(sender_wallet: &mut Wallet, txn_output: &String) -> Self {
         Self {
             timestamp: Utc::now().timestamp(),
-            from: sender_wallet.getPublicKey(),
+            from: sender_wallet.get_public_key(),
             signature: sender_wallet.sign(txn_output),
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransactionOutput {
     pub to: String,
     pub amount: f64,
@@ -47,7 +47,7 @@ impl TransactionOutput {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Transaction {
     pub id: Uuid,
     pub txn_type: TransactionType,

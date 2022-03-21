@@ -1,6 +1,7 @@
 // use super::{App, Block};
-use crate::block::Block;
 use crate::blockchain::Blockchain;
+use crate::wallet::Wallet;
+use crate::{block::Block, transaction::Transaction};
 
 use libp2p::{
     floodsub::{Floodsub, FloodsubEvent, Topic},
@@ -19,6 +20,7 @@ pub static KEYS: Lazy<identity::Keypair> = Lazy::new(identity::Keypair::generate
 pub static PEER_ID: Lazy<PeerId> = Lazy::new(|| PeerId::from(KEYS.public()));
 pub static CHAIN_TOPIC: Lazy<Topic> = Lazy::new(|| Topic::new("chains"));
 pub static BLOCK_TOPIC: Lazy<Topic> = Lazy::new(|| Topic::new("blocks"));
+pub static TXN_TOPIC: Lazy<Topic> = Lazy::new(|| Topic::new("transactions"));
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ChainResponse {
@@ -27,12 +29,11 @@ pub struct ChainResponse {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct LocalChainRequest {
+pub struct ChainRequest {
     pub from_peer_id: String,
 }
 
 pub enum EventType {
-    LocalChainResponse(ChainResponse),
     Input(String),
     Init,
 }
@@ -66,6 +67,7 @@ impl AppBehaviour {
         };
         behaviour.floodsub.subscribe(CHAIN_TOPIC.clone());
         behaviour.floodsub.subscribe(BLOCK_TOPIC.clone());
+        behaviour.floodsub.subscribe(TXN_TOPIC.clone());
 
         behaviour
     }
@@ -80,22 +82,46 @@ impl NetworkBehaviourEventProcess<FloodsubEvent> for AppBehaviour {
                     info!("Response from {}:", msg.source);
                     resp.blocks.iter().for_each(|r| info!("{:?}", r));
 
-                    self.blockchain.blocks = self.blockchain.choose_chain(self.blockchain.blocks.clone(), resp.blocks);
+                    self.blockchain.replace_chain(&resp.blocks);
                 }
-            } else if let Ok(resp) = serde_json::from_slice::<LocalChainRequest>(&msg.data) {
+            } else if let Ok(resp) = serde_json::from_slice::<ChainRequest>(&msg.data) {
                 info!("sending local chain to {}", msg.source.to_string());
                 let peer_id = resp.from_peer_id;
                 if PEER_ID.to_string() == peer_id {
-                    if let Err(e) = self.response_sender.send(ChainResponse {
-                        blocks: self.blockchain.blocks.clone(),
+                    let json = serde_json::to_string(&ChainResponse {
+                        blocks: self.blockchain.chain.clone(),
                         receiver: msg.source.to_string(),
-                    }) {
-                        error!("error sending response via channel, {}", e);
-                    }
+                    })
+                    .expect("can jsonify response");
+                    self.floodsub.publish(CHAIN_TOPIC.clone(), json.as_bytes());
                 }
             } else if let Ok(block) = serde_json::from_slice::<Block>(&msg.data) {
                 info!("received new block from {}", msg.source.to_string());
-                self.blockchain.try_add_block(block);
+                if self.blockchain.is_valid_block(&block) {
+                    info!("relaying new block");
+                    let json = serde_json::to_string(&block).expect("can jsonify request");
+                    self.floodsub.publish(BLOCK_TOPIC.clone(), json.as_bytes());
+                }
+            } else if let Ok(txn) = serde_json::from_slice::<Transaction>(&msg.data) {
+                info!("received new transaction from {}", msg.source.to_string());
+
+                if !self.blockchain.txn_exist(&txn) {
+                    info!("relaying new transaction");
+                    let json = serde_json::to_string(&txn).expect("can jsonify request");
+                    self.floodsub.publish(TXN_TOPIC.clone(), json.as_bytes());
+
+                    if self.blockchain.add_txn(txn)
+                        && self.blockchain.get_leader() == self.blockchain.wallet.get_public_key()
+                    {
+                        // Threshold reached & selected as validator
+                        let new_block = self.blockchain.create_block();
+                        info!("broadcasting new block");
+                        let json = serde_json::to_string(&new_block).expect("can jsonify request");
+                        self.floodsub.publish(BLOCK_TOPIC.clone(), json.as_bytes());
+
+                        self.blockchain.chain.push(new_block);
+                    }
+                }
             }
         }
     }
@@ -137,29 +163,53 @@ pub fn handle_print_peers(swarm: &Swarm<AppBehaviour>) {
 
 pub fn handle_print_chain(swarm: &Swarm<AppBehaviour>) {
     info!("Local Blockchain:");
-    let pretty_json =
-        serde_json::to_string_pretty(&swarm.behaviour().blockchain.blocks).expect("can jsonify blocks");
+    let pretty_json = serde_json::to_string_pretty(&swarm.behaviour().blockchain.chain)
+        .expect("can jsonify blocks");
     info!("{}", pretty_json);
 }
 
-pub fn handle_create_block(cmd: &str, swarm: &mut Swarm<AppBehaviour>) {
-    if let Some(data) = cmd.strip_prefix("create b") {
+pub fn handle_create_txn(cmd: &str, swarm: &mut Swarm<AppBehaviour>) {
+    if let Some(data) = cmd.strip_prefix("create txn") {
+        let arg: Vec<&str> = data.split_whitespace().collect();
+
+        let keyPair = arg.get(0).expect("No keypair found").to_string();
+        let to = arg.get(1).expect("No receipient found").to_string();
+        let amount = arg
+            .get(2)
+            .expect("No amount found")
+            .to_string()
+            .parse::<f64>()
+            .expect("Convert amount string to float");
+
         let behaviour = swarm.behaviour_mut();
-        let latest_block = behaviour
-            .blockchain
-            .blocks
-            .last()
-            .expect("there is at least one block");
-        let block = Block::new(
-            latest_block.id + 1,
-            latest_block.hash.clone(),
-            data.to_owned(),
+
+        let mut wallet = Wallet::get_wallet(keyPair);
+        let txn = Blockchain::create_txn(
+            &mut wallet,
+            to,
+            amount,
+            crate::transaction::TransactionType::TRANSACTION,
         );
-        let json = serde_json::to_string(&block).expect("can jsonify request");
-        behaviour.blockchain.blocks.push(block);
-        info!("broadcasting new block");
+
+        let json = serde_json::to_string(&txn).expect("can jsonify request");
+
+        if behaviour.blockchain.add_txn(txn)
+            && behaviour.blockchain.get_leader() == behaviour.blockchain.wallet.get_public_key()
+        {
+            // Threshold reached & selected as validator
+            let new_block = behaviour.blockchain.create_block();
+            info!("broadcasting new block");
+            let json = serde_json::to_string(&new_block).expect("can jsonify request");
+            behaviour
+                .floodsub
+                .publish(BLOCK_TOPIC.clone(), json.as_bytes());
+
+            behaviour.blockchain.chain.push(new_block);
+        }
+
+        info!("broadcasting new transaction");
         behaviour
             .floodsub
-            .publish(BLOCK_TOPIC.clone(), json.as_bytes());
+            .publish(TXN_TOPIC.clone(), json.as_bytes());
     }
 }

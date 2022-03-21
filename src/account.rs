@@ -42,7 +42,7 @@ impl Account {
         (*self.balances.get_mut(from).unwrap()) -= amount;
     }
 
-    fn getBalance(&mut self, address: &String) -> &f64 {
+    pub fn get_balance(&mut self, address: &String) -> &f64 {
         self.initialize(address);
         self.balances.get(address).unwrap()
     }

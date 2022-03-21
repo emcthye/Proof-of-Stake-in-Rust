@@ -24,10 +24,12 @@ mod p2p;
 mod stake;
 mod transaction;
 mod util;
-mod wallet;
 mod validator;
+mod wallet;
 
 use blockchain::Blockchain;
+
+use crate::wallet::Wallet;
 
 #[tokio::main]
 async fn main() {
@@ -47,8 +49,13 @@ async fn main() {
         .multiplex(mplex::MplexConfig::new())
         .boxed();
 
-    let behaviour =
-        p2p::AppBehaviour::new(Blockchain::new(), response_sender, init_sender.clone()).await;
+    let mut wallet = Wallet::new();
+    let behaviour = p2p::AppBehaviour::new(
+        Blockchain::new(wallet),
+        response_sender,
+        init_sender.clone(),
+    )
+    .await;
 
     let mut swarm = SwarmBuilder::new(transp, behaviour, *p2p::PEER_ID)
         .executor(Box::new(|fut| {
@@ -76,9 +83,6 @@ async fn main() {
         let evt = {
             select! {
                 line = stdin.next_line() => Some(p2p::EventType::Input(line.expect("can get line").expect("can read line from stdin"))),
-                response = response_rcv.recv() => {
-                    Some(p2p::EventType::LocalChainResponse(response.expect("response exists")))
-                },
                 _init = init_rcv.recv() => {
                     Some(p2p::EventType::Init)
                 }
@@ -93,11 +97,10 @@ async fn main() {
             match event {
                 p2p::EventType::Init => {
                     let peers = p2p::get_list_peers(&swarm);
-                    swarm.behaviour_mut().blockchain.genesis();
 
                     info!("connected nodes: {}", peers.len());
                     if !peers.is_empty() {
-                        let req = p2p::LocalChainRequest {
+                        let req = p2p::ChainRequest {
                             from_peer_id: peers
                                 .iter()
                                 .last()
@@ -112,18 +115,11 @@ async fn main() {
                             .publish(p2p::CHAIN_TOPIC.clone(), json.as_bytes());
                     }
                 }
-                p2p::EventType::LocalChainResponse(resp) => {
-                    let json = serde_json::to_string(&resp).expect("can jsonify response");
-                    info!("LocalChainResponse: {}", json);
-                    swarm
-                        .behaviour_mut()
-                        .floodsub
-                        .publish(p2p::CHAIN_TOPIC.clone(), json.as_bytes());
-                }
                 p2p::EventType::Input(line) => match line.as_str() {
                     "ls p" => p2p::handle_print_peers(&swarm),
+                    cmd if cmd.starts_with("create wallet") => Wallet::generate_wallet(),
                     cmd if cmd.starts_with("ls c") => p2p::handle_print_chain(&swarm),
-                    cmd if cmd.starts_with("create b") => p2p::handle_create_block(cmd, &mut swarm),
+                    cmd if cmd.starts_with("create txn") => p2p::handle_create_txn(cmd, &mut swarm),
                     _ => error!("unknown command"),
                 },
             }

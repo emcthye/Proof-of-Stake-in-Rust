@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 pub const DIFFICULTY_PREFIX: &str = "00";
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Block {
     pub id: usize,
     pub hash: String,
@@ -30,26 +30,26 @@ impl Block {
         id: usize,
         previous_hash: String,
         txn: Vec<Transaction>,
-        validator_wallet: &mut Wallet,
+        validator_wallet: Wallet,
     ) -> Self {
-        info!("Creating block...");
+        info!("creating block...");
         let timestamp = Utc::now().timestamp();
         let hash = block::calculate_hash(&id, &timestamp, &previous_hash, &txn);
-        let validator = validator_wallet.getPublicKey();
-        let signature = validator_wallet.sign(&hash);
+        // let validator = ;
+        // let signature = ;
         Self {
             id,
             hash,
             previous_hash,
             timestamp,
             txn,
-            validator,
-            signature,
+            validator_wallet.get_public_key(),
+            validator_wallet.sign(&hash),
         }
     }
 
     pub fn verify_block_signature(block: &Block) -> bool {
-        info!("Verifying block...");
+        info!("verifying block...");
         let data = serde_json::json!({
             "id": block.id,
             "previous_hash": block.previous_hash,
@@ -71,6 +71,7 @@ pub fn calculate_hash(
     previous_hash: &str,
     txn: &Vec<Transaction>,
 ) -> String {
+    info!("calculating hash...");
     let hash = serde_json::json!({
         "id": id,
         "previous_hash": previous_hash,
