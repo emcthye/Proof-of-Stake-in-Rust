@@ -30,7 +30,7 @@ impl Block {
         id: usize,
         previous_hash: String,
         txn: Vec<Transaction>,
-        validator_wallet: Wallet,
+        validator_wallet: &mut Wallet,
     ) -> Self {
         info!("creating block...");
         let timestamp = Utc::now().timestamp();
@@ -43,8 +43,8 @@ impl Block {
             previous_hash,
             timestamp,
             txn,
-            validator_wallet.get_public_key(),
-            validator_wallet.sign(&hash),
+            validator: validator_wallet.get_public_key(),
+            signature: validator_wallet.sign(&hash),
         }
     }
 

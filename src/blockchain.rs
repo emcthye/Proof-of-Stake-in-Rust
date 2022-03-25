@@ -23,7 +23,7 @@ pub struct Blockchain {
 
 impl Blockchain {
     pub fn new(wallet: Wallet) -> Self {
-        let genesis = Blockchain::genesis(wallet);
+        let genesis = Blockchain::genesis(wallet.as_);
         Self {
             chain: vec![genesis],
             mempool: Mempool::new(),
@@ -51,7 +51,7 @@ impl Blockchain {
         self.mempool.add_transaction(txn)
     }
 
-    pub fn genesis(wallet: Wallet) -> Block {
+    pub fn genesis(wallet: &mut Wallet) -> Block {
         info!("Creating genesis block...");
         Block::new(0, String::from("genesis"), vec![], wallet)
     }
@@ -59,9 +59,9 @@ impl Blockchain {
     pub fn create_block(&mut self) -> Block {
         Block::new(
             self.chain.len(),
-            self.chain.last().unwrap().hash,
+            self.chain.last().unwrap().hash.clone(),
             self.mempool.validate_transactions(),
-            self.wallet,
+            &mut self.wallet,
         )
     }
 
@@ -129,7 +129,7 @@ impl Blockchain {
     }
 
     pub fn is_valid_chain(&mut self, chain: &Vec<Block>) -> bool {
-        if *chain.first().unwrap() != Blockchain::genesis(self.wallet) {
+        if *chain.first().unwrap() != Blockchain::genesis(&mut self.wallet) {
             return false;
         }
 
@@ -138,8 +138,8 @@ impl Blockchain {
                 continue;
             };
 
-            let block = chain[i];
-            let prev_block = chain[i - 1];
+            let block = &chain[i];
+            let prev_block = &chain[i - 1];
 
             if prev_block.hash != block.previous_hash {
                 warn!("block with id: {} has wrong previous hash", block.id);
@@ -156,7 +156,7 @@ impl Blockchain {
     }
 
     pub fn reset_state(&mut self) {
-        let genesis = Blockchain::genesis(self.wallet);
+        let genesis = Blockchain::genesis(&mut self.wallet);
         self.chain = vec![genesis];
         self.accounts = Account::new();
         self.stakes = Stake::new();

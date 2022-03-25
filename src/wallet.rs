@@ -24,7 +24,7 @@ impl Wallet {
         println!("Key Pair {:?}", hex::encode(keypair.to_bytes()));
     }
 
-    fn get_keypair(keypair_str: String) -> Keypair {
+    fn get_keypair(keypair_str: &String) -> Keypair {
         Keypair::from_bytes(&hex::decode(keypair_str).expect("Hex to Byte conversion"))
             .expect("Byte to Keypair conversion")
     }
@@ -34,14 +34,14 @@ impl Wallet {
     }
 
     pub fn sign(&mut self, dataHash: &String) -> String {
-        hex::encode(Wallet::get_keypair(self.keyPair).sign(dataHash.as_bytes()))
+        hex::encode(Wallet::get_keypair(&self.keyPair).sign(dataHash.as_bytes()))
     }
 
     pub fn get_public_key(&mut self) -> String {
-        hex::encode(Wallet::get_keypair(self.keyPair).public.as_bytes())
+        hex::encode(Wallet::get_keypair(&self.keyPair).public.as_bytes())
     }
 
-    pub fn get_balance<'a>(&mut self, blockchain: &'a Blockchain) -> &'a f64 {
+    pub fn get_balance<'a>(&mut self, blockchain: &'a mut Blockchain) -> &'a f64 {
         blockchain.get_balance(&self.get_public_key())
     }
 }
