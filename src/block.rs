@@ -29,14 +29,14 @@ impl Block {
     pub fn new(
         id: usize,
         previous_hash: String,
+        timestamp: i64,
         txn: Vec<Transaction>,
-        validator_wallet: &mut Wallet,
+        mut validator_wallet: Wallet,
     ) -> Self {
         info!("creating block...");
-        let timestamp = Utc::now().timestamp();
         let hash = block::calculate_hash(&id, &timestamp, &previous_hash, &txn);
         // let validator = ;
-        // let signature = ;
+        let signature = validator_wallet.sign(&hash);
         Self {
             id,
             hash,
@@ -44,7 +44,7 @@ impl Block {
             timestamp,
             txn,
             validator: validator_wallet.get_public_key(),
-            signature: validator_wallet.sign(&hash),
+            signature: signature,
         }
     }
 

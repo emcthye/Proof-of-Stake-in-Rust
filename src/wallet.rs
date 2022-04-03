@@ -13,6 +13,8 @@ impl Wallet {
     pub fn new() -> Wallet {
         let mut csprng = OsRng {};
         let keypair = Keypair::generate(&mut csprng);
+        let pub_key = hex::encode(keypair.public.to_bytes());
+        println!("Public Key {}", pub_key);
         let keypair = hex::encode(keypair.to_bytes());
         println!("Key Pair {}", keypair);
         Self { keyPair: keypair }
@@ -21,6 +23,8 @@ impl Wallet {
     pub fn generate_wallet() {
         let mut csprng = OsRng {};
         let keypair = Keypair::generate(&mut csprng);
+        let pub_key = hex::encode(keypair.public.to_bytes());
+        println!("Public Key {}", pub_key);
         println!("Key Pair {:?}", hex::encode(keypair.to_bytes()));
     }
 

@@ -23,7 +23,7 @@ pub struct Blockchain {
 
 impl Blockchain {
     pub fn new(wallet: Wallet) -> Self {
-        let genesis = Blockchain::genesis(wallet.as_);
+        let genesis = Blockchain::genesis(wallet.clone());
         Self {
             chain: vec![genesis],
             mempool: Mempool::new(),
@@ -51,17 +51,18 @@ impl Blockchain {
         self.mempool.add_transaction(txn)
     }
 
-    pub fn genesis(wallet: &mut Wallet) -> Block {
+    pub fn genesis(wallet: Wallet) -> Block {
         info!("Creating genesis block...");
-        Block::new(0, String::from("genesis"), vec![], wallet)
+        Block::new(0, String::from("genesis"), 1648994652, vec![], wallet)
     }
 
     pub fn create_block(&mut self) -> Block {
         Block::new(
             self.chain.len(),
             self.chain.last().unwrap().hash.clone(),
+            Utc::now().timestamp(),
             self.mempool.validate_transactions(),
-            &mut self.wallet,
+            self.wallet.clone(),
         )
     }
 
@@ -129,7 +130,7 @@ impl Blockchain {
     }
 
     pub fn is_valid_chain(&mut self, chain: &Vec<Block>) -> bool {
-        if *chain.first().unwrap() != Blockchain::genesis(&mut self.wallet) {
+        if *chain.first().unwrap() != Blockchain::genesis(self.wallet.clone()) {
             return false;
         }
 
@@ -156,7 +157,7 @@ impl Blockchain {
     }
 
     pub fn reset_state(&mut self) {
-        let genesis = Blockchain::genesis(&mut self.wallet);
+        let genesis = Blockchain::genesis(self.wallet.clone());
         self.chain = vec![genesis];
         self.accounts = Account::new();
         self.stakes = Stake::new();

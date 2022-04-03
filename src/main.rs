@@ -49,7 +49,8 @@ async fn main() {
         .multiplex(mplex::MplexConfig::new())
         .boxed();
 
-    let mut wallet = Wallet::new();
+    // let mut wallet = Wallet::new();
+    let wallet = Wallet::get_wallet("27a23bf39574e86464f4e638241b3ef3dd223d9a30bd97810ff29c992e747e5a230681c76f00b412ccf7757a8449c448a04acd735e497a7612b66d8bfcb8e576".to_string());
     let behaviour = p2p::AppBehaviour::new(
         Blockchain::new(wallet),
         response_sender,
@@ -119,6 +120,7 @@ async fn main() {
                     "ls p" => p2p::handle_print_peers(&swarm),
                     cmd if cmd.starts_with("create wallet") => Wallet::generate_wallet(),
                     cmd if cmd.starts_with("ls c") => p2p::handle_print_chain(&swarm),
+                    cmd if cmd.starts_with("ls bal") => p2p::handle_print_balance(&swarm),
                     cmd if cmd.starts_with("create txn") => p2p::handle_create_txn(cmd, &mut swarm),
                     _ => error!("unknown command"),
                 },

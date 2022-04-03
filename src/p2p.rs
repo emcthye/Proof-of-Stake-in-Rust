@@ -168,6 +168,13 @@ pub fn handle_print_chain(swarm: &Swarm<AppBehaviour>) {
     info!("{}", pretty_json);
 }
 
+pub fn handle_print_balance(swarm: &Swarm<AppBehaviour>) {
+    info!("Account Balance:");
+    let pretty_json = serde_json::to_string_pretty(&swarm.behaviour().blockchain.accounts.balances)
+        .expect("can jsonify blocks");
+    info!("{}", pretty_json);
+}
+
 pub fn handle_create_txn(cmd: &str, swarm: &mut Swarm<AppBehaviour>) {
     if let Some(data) = cmd.strip_prefix("create txn") {
         let arg: Vec<&str> = data.split_whitespace().collect();

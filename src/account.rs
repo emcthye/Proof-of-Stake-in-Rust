@@ -11,10 +11,10 @@ impl Account {
     pub fn new() -> Self {
         Self {
             accounts: vec![String::from(
-                "5aad9b5e21f63955e8840e8b954926c60e0e2d906fdbc0ce1e3afe249a67f614",
+                "230681c76f00b412ccf7757a8449c448a04acd735e497a7612b66d8bfcb8e576",
             )],
             balances: HashMap::from([(
-                String::from("5aad9b5e21f63955e8840e8b954926c60e0e2d906fdbc0ce1e3afe249a67f614"),
+                String::from("230681c76f00b412ccf7757a8449c448a04acd735e497a7612b66d8bfcb8e576"),
                 1000.00,
             )]),
         }

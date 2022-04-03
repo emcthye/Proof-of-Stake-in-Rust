@@ -11,13 +11,14 @@ pub struct Stake {
 impl Stake {
     pub fn new() -> Self {
         Self {
-            accounts: vec![String::from(
-                "5aad9b5e21f63955e8840e8b954926c60e0e2d906fdbc0ce1e3afe249a67f614",
-            )],
-            balances: HashMap::from([(
-                String::from("5aad9b5e21f63955e8840e8b954926c60e0e2d906fdbc0ce1e3afe249a67f614"),
-                10,
-            )]),
+            accounts: vec![
+                "230681c76f00b412ccf7757a8449c448a04acd735e497a7612b66d8bfcb8e576".to_string(),
+                "5aede624154386ca358af195e13a46981b917ee8279f30a67d7a211a3d3e7243".to_string()
+                ],
+            balances: HashMap::from([
+                ("230681c76f00b412ccf7757a8449c448a04acd735e497a7612b66d8bfcb8e576".to_string(),100),
+                ("5aede624154386ca358af195e13a46981b917ee8279f30a67d7a211a3d3e7243".to_string(),10)
+                ]),
         }
     }
 
