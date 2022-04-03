@@ -97,7 +97,7 @@ impl NetworkBehaviourEventProcess<FloodsubEvent> for AppBehaviour {
                 }
             } else if let Ok(block) = serde_json::from_slice::<Block>(&msg.data) {
                 info!("received new block from {}", msg.source.to_string());
-                if self.blockchain.is_valid_block(&block) {
+                if self.blockchain.is_valid_block(block.clone()) {
                     info!("relaying new block");
                     let json = serde_json::to_string(&block).expect("can jsonify request");
                     self.floodsub.publish(BLOCK_TOPIC.clone(), json.as_bytes());
@@ -118,8 +118,8 @@ impl NetworkBehaviourEventProcess<FloodsubEvent> for AppBehaviour {
                         info!("broadcasting new block");
                         let json = serde_json::to_string(&new_block).expect("can jsonify request");
                         self.floodsub.publish(BLOCK_TOPIC.clone(), json.as_bytes());
-
-                        self.blockchain.chain.push(new_block);
+                        // info!("Adding new block to local chain from peer txn");
+                        // self.blockchain.chain.push(new_block);
                     }
                 }
             }
@@ -200,19 +200,21 @@ pub fn handle_create_txn(cmd: &str, swarm: &mut Swarm<AppBehaviour>) {
 
         let json = serde_json::to_string(&txn).expect("can jsonify request");
 
-        if behaviour.blockchain.add_txn(txn)
-            && behaviour.blockchain.get_leader() == behaviour.blockchain.wallet.get_public_key()
-        {
-            // Threshold reached & selected as validator
-            let new_block = behaviour.blockchain.create_block();
-            info!("broadcasting new block");
-            let json = serde_json::to_string(&new_block).expect("can jsonify request");
-            behaviour
-                .floodsub
-                .publish(BLOCK_TOPIC.clone(), json.as_bytes());
+        // if behaviour.blockchain.add_txn(txn)
+        //     && behaviour.blockchain.get_leader() == behaviour.blockchain.wallet.get_public_key()
+        // {
+        //     // Threshold reached & selected as validator
+        //     let new_block = behaviour.blockchain.create_block();
+            
+        //     let json = serde_json::to_string(&new_block).expect("can jsonify request");
+        //     info!("broadcasting new block {}", json);
+        //     behaviour
+        //         .floodsub
+        //         .publish(BLOCK_TOPIC.clone(), json.as_bytes());
 
-            behaviour.blockchain.chain.push(new_block);
-        }
+        //     info!("Adding new block to local chain from handle_create_txn");
+        //     behaviour.blockchain.chain.push(new_block);
+        // }
 
         info!("broadcasting new transaction");
         behaviour

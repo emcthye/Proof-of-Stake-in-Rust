@@ -16,8 +16,8 @@ impl Stake {
                 "5aede624154386ca358af195e13a46981b917ee8279f30a67d7a211a3d3e7243".to_string()
                 ],
             balances: HashMap::from([
-                ("230681c76f00b412ccf7757a8449c448a04acd735e497a7612b66d8bfcb8e576".to_string(),100),
-                ("5aede624154386ca358af195e13a46981b917ee8279f30a67d7a211a3d3e7243".to_string(),10)
+                ("230681c76f00b412ccf7757a8449c448a04acd735e497a7612b66d8bfcb8e576".to_string(),10),
+                ("5aede624154386ca358af195e13a46981b917ee8279f30a67d7a211a3d3e7243".to_string(),100)
                 ]),
         }
     }

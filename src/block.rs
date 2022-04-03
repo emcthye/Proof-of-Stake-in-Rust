@@ -50,17 +50,18 @@ impl Block {
 
     pub fn verify_block_signature(block: &Block) -> bool {
         info!("verifying block...");
-        let data = serde_json::json!({
-            "id": block.id,
-            "previous_hash": block.previous_hash,
-            "transactions": block.txn,
-            "timestamp": block.timestamp
-        });
+        // let data = serde_json::json!({
+        //     "id": block.id,
+        //     "previous_hash": ,
+        //     "transactions": ,
+        //     "timestamp": 
+        // });
+        let hash = block::calculate_hash(&block.id, &block.timestamp, &block.previous_hash, &block.txn);
 
         Util::verifySignature(
-            PublicKey::from_bytes(block.validator.as_bytes()).unwrap(),
-            &data.to_string(),
-            &Signature::from_bytes(block.signature.as_bytes()).unwrap(),
+            &block.validator,
+            &hash,
+            &block.signature,
         )
     }
 }

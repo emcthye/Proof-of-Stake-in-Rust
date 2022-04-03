@@ -83,9 +83,9 @@ impl Transaction {
 
     pub fn verify_txn(txn: &Transaction) -> bool {        
         Util::verifySignature(
-            PublicKey::from_bytes(&hex::decode(&txn.txn_input.from).expect("PublicKey Hex to Byte conversion")).unwrap(),
+            &txn.txn_input.from,
             &serde_json::to_string(&txn.txn_output).unwrap(),
-            &Signature::from_bytes(&hex::decode(&txn.txn_input.signature).expect("Signature Hex to Byte conversion")).unwrap(),
+            &txn.txn_input.signature,
         )
     }
 }

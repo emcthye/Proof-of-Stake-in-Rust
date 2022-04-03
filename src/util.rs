@@ -9,7 +9,9 @@ impl Util {
         Uuid::new_v4()
     }
     
-    pub fn verifySignature(publicKey: PublicKey, message: &String, signature: &Signature) -> bool {
+    pub fn verifySignature(fromPublicKey: &String, message: &String, fromSignature: &String) -> bool {
+        let publicKey = PublicKey::from_bytes(&hex::decode(fromPublicKey).expect("PublicKey Hex to Byte conversion")).unwrap();
+        let signature = &Signature::from_bytes(&hex::decode(fromSignature).expect("Signature Hex to Byte conversion")).unwrap();
         publicKey.verify(message.as_bytes(), signature).is_ok()
     }
     

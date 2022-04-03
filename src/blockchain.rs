@@ -66,11 +66,14 @@ impl Blockchain {
         )
     }
 
-    pub fn is_valid_block(&mut self, block: &Block) -> bool {
+    pub fn is_valid_block(&mut self, block: Block) -> bool {
         let prev_block = self.chain.last().unwrap();
 
         if block.previous_hash != prev_block.hash {
-            warn!("block with id: {} has wrong previous hash", block.id);
+
+            warn!("block with id: {} has wrong previous hash {} vs {} ", 
+            block.id, block.previous_hash, prev_block.hash);
+
             return false;
         } else if block.hash
             != block::calculate_hash(
@@ -98,9 +101,10 @@ impl Blockchain {
             warn!("block with id: {} has invalid validator", block.id);
             return false;
         }
-        info!("Add new block to current chain");
-
+    
         self.execute_txn(&block);
+        info!("Add new block to current chain");
+        self.chain.push(block);
         self.mempool.clear();
         true
     }
