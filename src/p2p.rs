@@ -175,6 +175,35 @@ pub fn handle_print_balance(swarm: &Swarm<AppBehaviour>) {
     info!("{}", pretty_json);
 }
 
+pub fn handle_print_validator(swarm: &Swarm<AppBehaviour>) {
+    info!("Validators: ");
+    let pretty_json = serde_json::to_string_pretty(&swarm.behaviour().blockchain.validators.accounts)
+    .expect("can jsonify blocks");
+    info!("{}", pretty_json);
+}
+
+pub fn handle_print_stake(swarm: &Swarm<AppBehaviour>) {
+    info!("Validators Stake: ");
+    let pretty_json = serde_json::to_string_pretty(&swarm.behaviour().blockchain.stakes.balances)
+    .expect("can jsonify blocks");
+    info!("{}", pretty_json);
+}
+
+pub fn handle_set_wallet(cmd: &str, swarm: &mut Swarm<AppBehaviour>) {
+    let behaviour = swarm.behaviour_mut();
+    if let Some(data) = cmd.strip_prefix("set wallet") {
+        let arg: Vec<&str> = data.split_whitespace().collect();
+        let keyPair = arg.get(0).expect("No keypair found").to_string();
+        info!("setting node wallet to {}", keyPair);
+        behaviour.blockchain.wallet = Wallet::get_wallet(keyPair);
+    }
+}
+
+pub fn handle_print_wallet(swarm: &mut Swarm<AppBehaviour>) {
+    let pub_key = swarm.behaviour_mut().blockchain.wallet.get_public_key();
+    info!("Node wallet public key: {}", pub_key);
+}
+
 pub fn handle_create_txn(cmd: &str, swarm: &mut Swarm<AppBehaviour>) {
     if let Some(data) = cmd.strip_prefix("create txn") {
         let arg: Vec<&str> = data.split_whitespace().collect();
@@ -187,6 +216,17 @@ pub fn handle_create_txn(cmd: &str, swarm: &mut Swarm<AppBehaviour>) {
             .to_string()
             .parse::<f64>()
             .expect("Convert amount string to float");
+        let category = arg
+            .get(3)
+            .expect("No txntype found")
+            .to_string();
+        
+        let txn_type = match category.as_str() {
+            "txn" => crate::transaction::TransactionType::TRANSACTION,
+            "stake" => crate::transaction::TransactionType::STAKE,
+            "validator" => crate::transaction::TransactionType::VALIDATOR,
+            _ => crate::transaction::TransactionType::TRANSACTION
+        };
 
         let behaviour = swarm.behaviour_mut();
 
@@ -195,7 +235,7 @@ pub fn handle_create_txn(cmd: &str, swarm: &mut Swarm<AppBehaviour>) {
             &mut wallet,
             to,
             amount,
-            crate::transaction::TransactionType::TRANSACTION,
+            txn_type,
         );
 
         let json = serde_json::to_string(&txn).expect("can jsonify request");
