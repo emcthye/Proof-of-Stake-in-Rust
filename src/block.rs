@@ -17,6 +17,7 @@ pub struct Block {
     pub txn: Vec<Transaction>,
     pub validator: String,
     pub signature: String,
+    pub difficulty: u32,
 }
 
 impl PartialEq for Block {
@@ -31,6 +32,7 @@ impl Block {
         previous_hash: String,
         timestamp: i64,
         txn: Vec<Transaction>,
+        difficulty: u32,
         mut validator_wallet: Wallet,
     ) -> Self {
         info!("creating block...");
@@ -45,6 +47,7 @@ impl Block {
             txn,
             validator: validator_wallet.get_public_key(),
             signature: signature,
+            difficulty: difficulty,
         }
     }
 
@@ -54,15 +57,16 @@ impl Block {
         //     "id": block.id,
         //     "previous_hash": ,
         //     "transactions": ,
-        //     "timestamp": 
+        //     "timestamp":
         // });
-        let hash = block::calculate_hash(&block.id, &block.timestamp, &block.previous_hash, &block.txn);
+        let hash = block::calculate_hash(
+            &block.id,
+            &block.timestamp,
+            &block.previous_hash,
+            &block.txn,
+        );
 
-        Util::verifySignature(
-            &block.validator,
-            &hash,
-            &block.signature,
-        )
+        Util::verifySignature(&block.validator, &hash, &block.signature)
     }
 }
 

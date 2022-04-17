@@ -11,6 +11,11 @@ use crate::transaction::*;
 use crate::util::Util;
 use crate::validator::Validator;
 use crate::wallet::Wallet;
+use num_bigint::BigUint;
+use sha256::digest;
+
+const BLOCK_GENERATION_INTERVAL_SECONDS: usize = 2;
+const DIFFICULTY_ADJUSTMENT_INTERVAL_BLOCKS: usize = 1;
 
 pub struct Blockchain {
     pub chain: Vec<Block>,
@@ -51,17 +56,82 @@ impl Blockchain {
         self.mempool.add_transaction(txn)
     }
 
-    pub fn genesis(wallet: Wallet) -> Block {
-        info!("Creating genesis block...");
-        Block::new(0, String::from("genesis"), 1648994652, vec![], wallet)
+    pub fn get_difficulty(&mut self) -> u32 {
+        let last_block = self.chain.last().unwrap();
+        if last_block.id % DIFFICULTY_ADJUSTMENT_INTERVAL_BLOCKS == 0 && last_block.id != 0 {
+            let prev_difficulty_block =
+                &self.chain[self.chain.len() - DIFFICULTY_ADJUSTMENT_INTERVAL_BLOCKS];
+            let time_taken = last_block.timestamp - prev_difficulty_block.timestamp;
+            let time_expected =
+                DIFFICULTY_ADJUSTMENT_INTERVAL_BLOCKS * BLOCK_GENERATION_INTERVAL_SECONDS;
+            if time_taken < (time_expected / 2) as i64 {
+                prev_difficulty_block.difficulty + 1
+            } else if time_taken > (time_expected * 2) as i64 {
+                prev_difficulty_block.difficulty - 1
+            } else {
+                prev_difficulty_block.difficulty
+            }
+        } else {
+            last_block.difficulty
+        }
     }
 
-    pub fn create_block(&mut self) -> Block {
+    pub fn genesis(wallet: Wallet) -> Block {
+        info!("Creating genesis block...");
+        Block::new(0, String::from("genesis"), 1648994652, vec![], 1, wallet)
+    }
+
+    pub fn mineBlockByStake(&mut self) -> Option<Block> {
+        let balance = self
+            .stakes
+            .get_balance(&self.wallet.get_public_key())
+            .clone();
+
+        let difficulty = self.get_difficulty();
+        info!("Mining new block with difficulty {}", difficulty);
+
+        let timestamp = Utc::now().timestamp();
+        let previous_hash = self.chain.last().unwrap().previous_hash.clone();
+        let address = self.wallet.get_public_key();
+
+        if Blockchain::is_staking_valid(balance, difficulty, timestamp, &previous_hash, &address) {
+            Some(self.create_block(timestamp))
+        } else {
+            None
+        }
+    }
+
+    pub fn is_staking_valid(
+        balance: u64,
+        difficulty: u32,
+        timestamp: i64,
+        previous_hash: &String,
+        address: &String,
+    ) -> bool {
+        let base = BigUint::new(vec![2]);
+        let big_balance_diff_mul = base.pow(256) * balance as u32;
+        let big_balance_diff = big_balance_diff_mul / difficulty as u64;
+
+        let data_str = format!("{}{}{}", previous_hash, address, timestamp.to_string());
+        // println!("data_str {}", data_str);
+
+        let sha256_hash = digest(data_str);
+
+        // println!("sha256_hash {}", sha256_hash);
+
+        let decimal_staking_hash = BigUint::parse_bytes(&sha256_hash.as_bytes(), 16).expect("msg");
+        // println!("decimalStakingHash {:?}", decimal_staking_hash);
+
+        decimal_staking_hash <= big_balance_diff
+    }
+
+    pub fn create_block(&mut self, timestamp: i64) -> Block {
         Block::new(
             self.chain.len(),
             self.chain.last().unwrap().hash.clone(),
-            Utc::now().timestamp(),
+            timestamp,
             self.mempool.validate_transactions(),
+            self.get_difficulty(),
             self.wallet.clone(),
         )
     }
@@ -70,9 +140,10 @@ impl Blockchain {
         let prev_block = self.chain.last().unwrap();
 
         if block.previous_hash != prev_block.hash {
-
-            warn!("block with id: {} has wrong previous hash {} vs {} ", 
-            block.id, block.previous_hash, prev_block.hash);
+            warn!(
+                "block with id: {} has wrong previous hash {} vs {} ",
+                block.id, block.previous_hash, prev_block.hash
+            );
 
             return false;
         } else if block.hash
@@ -97,11 +168,17 @@ impl Blockchain {
                 block.id
             );
             return false;
-        } else if !self.verify_leader(&block) {
+        } else if !Blockchain::is_staking_valid(
+            self.stakes.get_balance(&block.validator).clone(),
+            block.difficulty,
+            block.timestamp,
+            &block.previous_hash,
+            &block.validator,
+        ) {
             warn!("block with id: {} has invalid validator", block.id);
             return false;
         }
-    
+
         self.execute_txn(&block);
         info!("Add new block to current chain");
         self.chain.push(block);

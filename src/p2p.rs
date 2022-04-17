@@ -36,6 +36,7 @@ pub struct ChainRequest {
 pub enum EventType {
     Input(String),
     Init,
+    Mining,
 }
 
 #[derive(NetworkBehaviour)]
@@ -110,17 +111,18 @@ impl NetworkBehaviourEventProcess<FloodsubEvent> for AppBehaviour {
                     let json = serde_json::to_string(&txn).expect("can jsonify request");
                     self.floodsub.publish(TXN_TOPIC.clone(), json.as_bytes());
 
-                    if self.blockchain.add_txn(txn)
-                        && self.blockchain.get_leader() == self.blockchain.wallet.get_public_key()
-                    {
-                        // Threshold reached & selected as validator
-                        let new_block = self.blockchain.create_block();
-                        info!("broadcasting new block");
-                        let json = serde_json::to_string(&new_block).expect("can jsonify request");
-                        self.floodsub.publish(BLOCK_TOPIC.clone(), json.as_bytes());
-                        // info!("Adding new block to local chain from peer txn");
-                        // self.blockchain.chain.push(new_block);
-                    }
+                    self.blockchain.add_txn(txn);
+                    // if self.blockchain.add_txn(txn)
+                    //     && self.blockchain.get_leader() == self.blockchain.wallet.get_public_key()
+                    // {
+                    //     // Threshold reached & selected as validator
+                    //     let new_block = self.blockchain.create_block();
+                    //     info!("broadcasting new block");
+                    //     let json = serde_json::to_string(&new_block).expect("can jsonify request");
+                    //     self.floodsub.publish(BLOCK_TOPIC.clone(), json.as_bytes());
+                    //     // info!("Adding new block to local chain from peer txn");
+                    //     // self.blockchain.chain.push(new_block);
+                    // }
                 }
             }
         }
@@ -177,15 +179,16 @@ pub fn handle_print_balance(swarm: &Swarm<AppBehaviour>) {
 
 pub fn handle_print_validator(swarm: &Swarm<AppBehaviour>) {
     info!("Validators: ");
-    let pretty_json = serde_json::to_string_pretty(&swarm.behaviour().blockchain.validators.accounts)
-    .expect("can jsonify blocks");
+    let pretty_json =
+        serde_json::to_string_pretty(&swarm.behaviour().blockchain.validators.accounts)
+            .expect("can jsonify blocks");
     info!("{}", pretty_json);
 }
 
 pub fn handle_print_stake(swarm: &Swarm<AppBehaviour>) {
     info!("Validators Stake: ");
     let pretty_json = serde_json::to_string_pretty(&swarm.behaviour().blockchain.stakes.balances)
-    .expect("can jsonify blocks");
+        .expect("can jsonify blocks");
     info!("{}", pretty_json);
 }
 
@@ -216,27 +219,19 @@ pub fn handle_create_txn(cmd: &str, swarm: &mut Swarm<AppBehaviour>) {
             .to_string()
             .parse::<f64>()
             .expect("Convert amount string to float");
-        let category = arg
-            .get(3)
-            .expect("No txntype found")
-            .to_string();
-        
+        let category = arg.get(3).expect("No txntype found").to_string();
+
         let txn_type = match category.as_str() {
             "txn" => crate::transaction::TransactionType::TRANSACTION,
             "stake" => crate::transaction::TransactionType::STAKE,
             "validator" => crate::transaction::TransactionType::VALIDATOR,
-            _ => crate::transaction::TransactionType::TRANSACTION
+            _ => crate::transaction::TransactionType::TRANSACTION,
         };
 
         let behaviour = swarm.behaviour_mut();
 
         let mut wallet = Wallet::get_wallet(keyPair);
-        let txn = Blockchain::create_txn(
-            &mut wallet,
-            to,
-            amount,
-            txn_type,
-        );
+        let txn = Blockchain::create_txn(&mut wallet, to, amount, txn_type);
 
         let json = serde_json::to_string(&txn).expect("can jsonify request");
 
@@ -245,7 +240,7 @@ pub fn handle_create_txn(cmd: &str, swarm: &mut Swarm<AppBehaviour>) {
         // {
         //     // Threshold reached & selected as validator
         //     let new_block = behaviour.blockchain.create_block();
-            
+
         //     let json = serde_json::to_string(&new_block).expect("can jsonify request");
         //     info!("broadcasting new block {}", json);
         //     behaviour
