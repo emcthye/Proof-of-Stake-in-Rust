@@ -14,7 +14,7 @@ use crate::wallet::Wallet;
 use num_bigint::BigUint;
 use sha256::digest;
 
-const BLOCK_GENERATION_INTERVAL_SECONDS: usize = 2;
+const BLOCK_GENERATION_INTERVAL_SECONDS: usize = 30;
 const DIFFICULTY_ADJUSTMENT_INTERVAL_BLOCKS: usize = 1;
 
 pub struct Blockchain {
@@ -60,28 +60,44 @@ impl Blockchain {
         let last_block = self.chain.last().unwrap();
         if last_block.id % DIFFICULTY_ADJUSTMENT_INTERVAL_BLOCKS == 0 && last_block.id != 0 {
             let prev_difficulty_block =
-                &self.chain[self.chain.len() - DIFFICULTY_ADJUSTMENT_INTERVAL_BLOCKS];
+                &self.chain[self.chain.len() - 1 - DIFFICULTY_ADJUSTMENT_INTERVAL_BLOCKS];
+            info!("last block time {}", last_block.timestamp);
+            info!("prev block time {}", prev_difficulty_block.timestamp);
             let time_taken = last_block.timestamp - prev_difficulty_block.timestamp;
+            info!("time_taken {}", time_taken);
             let time_expected =
                 DIFFICULTY_ADJUSTMENT_INTERVAL_BLOCKS * BLOCK_GENERATION_INTERVAL_SECONDS;
             if time_taken < (time_expected / 2) as i64 {
+                info!("Increase Difficulty");
                 prev_difficulty_block.difficulty + 1
             } else if time_taken > (time_expected * 2) as i64 {
-                prev_difficulty_block.difficulty - 1
+                info!("Decrease Difficulty");
+                if prev_difficulty_block.difficulty <= 1 {
+                    1
+                } else {
+                    prev_difficulty_block.difficulty - 1
+                }
             } else {
+                info!("Maintain Difficulty");
                 prev_difficulty_block.difficulty
             }
         } else {
+            info!("Reuse Difficulty");
             last_block.difficulty
         }
     }
 
     pub fn genesis(wallet: Wallet) -> Block {
         info!("Creating genesis block...");
-        Block::new(0, String::from("genesis"), 1648994652, vec![], 1, wallet)
+        Block::new(0, String::from("genesis"), 1650205976, vec![], 5, wallet)
     }
 
-    pub fn mineBlockByStake(&mut self) -> Option<Block> {
+    pub fn mine_block_by_stake(&mut self) -> Option<Block> {
+        if self.mempool.transactions.is_empty() {
+            // info!("Skip mining because no transaction in mempool");
+            return None;
+        }
+
         let balance = self
             .stakes
             .get_balance(&self.wallet.get_public_key())
@@ -111,21 +127,29 @@ impl Blockchain {
         let base = BigUint::new(vec![2]);
         let big_balance_diff_mul = base.pow(256) * balance as u32;
         let big_balance_diff = big_balance_diff_mul / difficulty as u64;
+        // println!("big_balance_diff {:?}", big_balance_diff);
 
         let data_str = format!("{}{}{}", previous_hash, address, timestamp.to_string());
-        // println!("data_str {}", data_str);
+        println!(
+            "previous_hash: {} address: {} timestamp: {}",
+            previous_hash,
+            address,
+            timestamp.to_string()
+        );
 
         let sha256_hash = digest(data_str);
 
-        // println!("sha256_hash {}", sha256_hash);
+        println!("sha256_hash {}", sha256_hash);
 
         let decimal_staking_hash = BigUint::parse_bytes(&sha256_hash.as_bytes(), 16).expect("msg");
-        // println!("decimalStakingHash {:?}", decimal_staking_hash);
+        println!("decimalStakingHash {:?}", decimal_staking_hash);
 
         decimal_staking_hash <= big_balance_diff
     }
 
     pub fn create_block(&mut self, timestamp: i64) -> Block {
+        info!("Creating new block...");
+
         Block::new(
             self.chain.len(),
             self.chain.last().unwrap().hash.clone(),
@@ -179,11 +203,15 @@ impl Blockchain {
             return false;
         }
 
+        self.add_new_block(block);
+        true
+    }
+
+    pub fn add_new_block(&mut self, block: Block) {
         self.execute_txn(&block);
         info!("Add new block to current chain");
         self.chain.push(block);
         self.mempool.clear();
-        true
     }
 
     pub fn verify_leader(&mut self, block: &Block) -> bool {

@@ -131,7 +131,11 @@ async fn main() {
                     }
                 }
                 p2p::EventType::Mining => {
-                    if let Some(block) = swarm.behaviour_mut().blockchain.mineBlockByStake() {
+                    if let Some(block) = swarm.behaviour_mut().blockchain.mine_block_by_stake() {
+                        swarm
+                            .behaviour_mut()
+                            .blockchain
+                            .add_new_block(block.clone());
                         info!("broadcasting new block");
                         let json = serde_json::to_string(&block).expect("can jsonify request");
                         swarm

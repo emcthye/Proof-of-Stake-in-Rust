@@ -98,8 +98,8 @@ impl NetworkBehaviourEventProcess<FloodsubEvent> for AppBehaviour {
                 }
             } else if let Ok(block) = serde_json::from_slice::<Block>(&msg.data) {
                 info!("received new block from {}", msg.source.to_string());
+                info!("received new block {:?}", block);
                 if self.blockchain.is_valid_block(block.clone()) {
-                    info!("relaying new block");
                     let json = serde_json::to_string(&block).expect("can jsonify request");
                     self.floodsub.publish(BLOCK_TOPIC.clone(), json.as_bytes());
                 }
