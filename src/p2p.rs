@@ -1,7 +1,7 @@
 // use super::{App, Block};
-use crate::blockchain::Blockchain;
-use crate::wallet::Wallet;
-use crate::{block::Block, transaction::Transaction};
+use crate::{
+    block::Block, blockchain::Blockchain, transaction, transaction::Transaction, wallet::Wallet,
+};
 
 use libp2p::{
     floodsub::{Floodsub, FloodsubEvent, Topic},
@@ -10,7 +10,7 @@ use libp2p::{
     swarm::{NetworkBehaviourEventProcess, Swarm},
     NetworkBehaviour, PeerId,
 };
-use log::{error, info};
+use log::{info, warn};
 use once_cell::sync::Lazy;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -25,6 +25,7 @@ pub static TXN_TOPIC: Lazy<Topic> = Lazy::new(|| Topic::new("transactions"));
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ChainResponse {
     pub blocks: Vec<Block>,
+    pub txns: Vec<Transaction>,
     pub receiver: String,
 }
 
@@ -81,25 +82,38 @@ impl NetworkBehaviourEventProcess<FloodsubEvent> for AppBehaviour {
             if let Ok(resp) = serde_json::from_slice::<ChainResponse>(&msg.data) {
                 if resp.receiver == PEER_ID.to_string() {
                     info!("Response from {}:", msg.source);
-                    resp.blocks.iter().for_each(|r| info!("{:?}", r));
+                    // resp.blocks.iter().for_each(|r| info!("{:?}", r));
 
                     self.blockchain.replace_chain(&resp.blocks);
+                    self.blockchain.mempool.transactions = resp
+                        .txns
+                        .into_iter()
+                        .filter(|txn| Transaction::verify_txn(txn))
+                        .collect();
                 }
             } else if let Ok(resp) = serde_json::from_slice::<ChainRequest>(&msg.data) {
-                info!("sending local chain to {}", msg.source.to_string());
+                info!(
+                    "sending local chain & mempool to {}",
+                    msg.source.to_string()
+                );
                 let peer_id = resp.from_peer_id;
+
                 if PEER_ID.to_string() == peer_id {
                     let json = serde_json::to_string(&ChainResponse {
                         blocks: self.blockchain.chain.clone(),
+                        txns: self.blockchain.mempool.transactions.clone(),
                         receiver: msg.source.to_string(),
                     })
                     .expect("can jsonify response");
+
                     self.floodsub.publish(CHAIN_TOPIC.clone(), json.as_bytes());
                 }
             } else if let Ok(block) = serde_json::from_slice::<Block>(&msg.data) {
-                info!("received new block from {}", msg.source.to_string());
+                // info!("received new block from {}", msg.source.to_string());
                 info!("received new block {:?}", block);
-                if self.blockchain.is_valid_block(block.clone()) {
+                if self.blockchain.chain.last().unwrap().id < block.id
+                    && self.blockchain.is_valid_block(block.clone())
+                {
                     let json = serde_json::to_string(&block).expect("can jsonify request");
                     self.floodsub.publish(BLOCK_TOPIC.clone(), json.as_bytes());
                 }
@@ -184,9 +198,9 @@ pub fn handle_print_stake(swarm: &Swarm<AppBehaviour>) {
 pub fn handle_set_wallet(cmd: &str, swarm: &mut Swarm<AppBehaviour>) {
     if let Some(data) = cmd.strip_prefix("set wallet") {
         let arg: Vec<&str> = data.split_whitespace().collect();
-        let keyPair = arg.get(0).expect("No keypair found").to_string();
-        info!("setting node wallet to {}", keyPair);
-        swarm.behaviour_mut().blockchain.wallet = Wallet::get_wallet(keyPair);
+        let key_pair = arg.get(0).expect("No keypair found").to_string();
+        info!("setting node wallet to {}", key_pair);
+        swarm.behaviour_mut().blockchain.wallet = Wallet::get_wallet(key_pair);
     }
 }
 
@@ -195,19 +209,25 @@ pub fn handle_print_wallet(swarm: &mut Swarm<AppBehaviour>) {
     info!("Node wallet public key: {}", pub_key);
 }
 
+pub fn handle_print_mempool(swarm: &Swarm<AppBehaviour>) {
+    let pretty_json =
+        serde_json::to_string_pretty(&swarm.behaviour().blockchain.mempool.transactions)
+            .expect("can jsonify blocks");
+    info!("{}", pretty_json);
+}
+
 pub fn handle_create_txn(cmd: &str, swarm: &mut Swarm<AppBehaviour>) {
     if let Some(data) = cmd.strip_prefix("create txn") {
         let arg: Vec<&str> = data.split_whitespace().collect();
 
-        let keyPair = arg.get(0).expect("No keypair found").to_string();
-        let to = arg.get(1).expect("No receipient found").to_string();
+        let to = arg.get(0).expect("No receipient found").to_string();
         let amount = arg
-            .get(2)
+            .get(1)
             .expect("No amount found")
             .to_string()
             .parse::<f64>()
             .expect("Convert amount string to float");
-        let category = arg.get(3).expect("No txntype found").to_string();
+        let category = arg.get(2).expect("No txntype found").to_string();
 
         let txn_type = match category.as_str() {
             "txn" => crate::transaction::TransactionType::TRANSACTION,
@@ -218,29 +238,21 @@ pub fn handle_create_txn(cmd: &str, swarm: &mut Swarm<AppBehaviour>) {
 
         let behaviour = swarm.behaviour_mut();
 
-        let mut wallet = Wallet::get_wallet(keyPair);
-        // let mut wallet = behaviour.blockchain.wallet.clone();
-        let txn = Blockchain::create_txn(&mut wallet, to, amount, txn_type);
+        let mut wallet = behaviour.blockchain.wallet.clone();
 
+        if amount + transaction::TRANSACTION_FEE
+            > *behaviour.blockchain.get_balance(&wallet.get_public_key())
+        {
+            warn!("Wallet has insufficient amount");
+            return;
+        }
+
+        let txn = Blockchain::create_txn(&mut wallet, to, amount, txn_type);
         let json = serde_json::to_string(&txn).expect("can jsonify request");
 
-        // if behaviour.blockchain.add_txn(txn)
-        //     && behaviour.blockchain.get_leader() == behaviour.blockchain.wallet.get_public_key()
-        // {
-        //     // Threshold reached & selected as validator
-        //     let new_block = behaviour.blockchain.create_block();
-
-        //     let json = serde_json::to_string(&new_block).expect("can jsonify request");
-        //     info!("broadcasting new block {}", json);
-        //     behaviour
-        //         .floodsub
-        //         .publish(BLOCK_TOPIC.clone(), json.as_bytes());
-
-        //     info!("Adding new block to local chain from handle_create_txn");
-        //     behaviour.blockchain.chain.push(new_block);
-        // }
-
-        info!("broadcasting new transaction");
+        info!("Adding new transaction to mempool");
+        behaviour.blockchain.mempool.add_transaction(txn);
+        info!("Broadcasting new transaction");
         behaviour
             .floodsub
             .publish(TXN_TOPIC.clone(), json.as_bytes());

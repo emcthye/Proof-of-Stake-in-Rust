@@ -5,7 +5,7 @@ use ed25519_dalek::{PublicKey, Signature};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-const TRANSACTION_FEE: f64 = 1.0;
+pub const TRANSACTION_FEE: f64 = 1.0;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum TransactionType {
@@ -70,7 +70,6 @@ impl Transaction {
     ) -> Self {
         let txn_output = TransactionOutput::new(to, amount, TRANSACTION_FEE);
         let serialized = serde_json::to_string(&txn_output).unwrap();
-        println!("serialized = {}", serialized);
         let txn_input = TransactionInput::new(sender_wallet, &serialized);
 
         Self {
@@ -81,7 +80,7 @@ impl Transaction {
         }
     }
 
-    pub fn verify_txn(txn: &Transaction) -> bool {        
+    pub fn verify_txn(txn: &Transaction) -> bool {
         Util::verifySignature(
             &txn.txn_input.from,
             &serde_json::to_string(&txn.txn_output).unwrap(),

@@ -1,3 +1,5 @@
+use log::warn;
+
 use crate::transaction::Transaction;
 
 pub struct Mempool {
@@ -12,7 +14,11 @@ impl Mempool {
     }
 
     pub fn add_transaction(&mut self, txn: Transaction) {
-        self.transactions.push(txn);
+        if Transaction::verify_txn(&txn) {
+            self.transactions.push(txn);
+        } else {
+            warn!("Failed adding to mempool: Invalid transaction.");
+        }
     }
 
     pub fn validate_transactions(&mut self) -> Vec<Transaction> {

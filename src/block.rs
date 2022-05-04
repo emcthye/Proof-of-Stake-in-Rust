@@ -1,12 +1,8 @@
 use crate::util::Util;
 use crate::wallet::Wallet;
 use crate::{block, transaction::Transaction};
-use chrono::prelude::*;
-use ed25519_dalek::{PublicKey, Signature};
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
-
-pub const DIFFICULTY_PREFIX: &str = "00";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Block {

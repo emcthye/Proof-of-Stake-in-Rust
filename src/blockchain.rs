@@ -83,7 +83,7 @@ impl Blockchain {
     }
 
     pub fn mine_block_by_stake(&mut self) -> Option<Block> {
-        if self.mempool.transactions.is_empty() {
+        if self.mempool.transactions.len() < 2 {
             // info!("Skip mining because no transaction in mempool");
             return None;
         }

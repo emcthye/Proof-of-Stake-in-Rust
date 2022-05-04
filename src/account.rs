@@ -10,13 +10,24 @@ pub struct Account {
 impl Account {
     pub fn new() -> Self {
         Self {
-            accounts: vec![String::from(
-                "230681c76f00b412ccf7757a8449c448a04acd735e497a7612b66d8bfcb8e576",
-            )],
-            balances: HashMap::from([(
+            accounts: vec![
                 String::from("230681c76f00b412ccf7757a8449c448a04acd735e497a7612b66d8bfcb8e576"),
-                1000.00,
-            )]),
+                String::from("5aede624154386ca358af195e13a46981b917ee8279f30a67d7a211a3d3e7243"),
+            ],
+            balances: HashMap::from([
+                (
+                    String::from(
+                        "230681c76f00b412ccf7757a8449c448a04acd735e497a7612b66d8bfcb8e576",
+                    ),
+                    500.00,
+                ),
+                (
+                    String::from(
+                        "5aede624154386ca358af195e13a46981b917ee8279f30a67d7a211a3d3e7243",
+                    ),
+                    500.00,
+                ),
+            ]),
         }
     }
 
