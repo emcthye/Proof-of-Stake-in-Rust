@@ -14,11 +14,7 @@ impl Mempool {
     }
 
     pub fn add_transaction(&mut self, txn: Transaction) {
-        if Transaction::verify_txn(&txn) {
-            self.transactions.push(txn);
-        } else {
-            warn!("Failed adding to mempool: Invalid transaction.");
-        }
+        self.transactions.push(txn);
     }
 
     pub fn validate_transactions(&mut self) -> Vec<Transaction> {

@@ -1,4 +1,4 @@
-use ed25519_dalek::{Keypair, PublicKey, Signer};
+use ed25519_dalek::{Keypair, Signer};
 use rand::rngs::OsRng;
 use serde::{Deserialize, Serialize};
 
@@ -6,7 +6,7 @@ use crate::blockchain::Blockchain;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Wallet {
-    pub keyPair: String,
+    pub key_pair: String,
 }
 
 impl Wallet {
@@ -17,7 +17,7 @@ impl Wallet {
         println!("Your Public Key {}", pub_key);
         let keypair = hex::encode(keypair.to_bytes());
         println!("Your Key Pair {}", keypair);
-        Self { keyPair: keypair }
+        Self { key_pair: keypair }
     }
 
     pub fn generate_wallet() {
@@ -34,15 +34,15 @@ impl Wallet {
     }
 
     pub fn get_wallet(keypair: String) -> Wallet {
-        Self { keyPair: keypair }
+        Self { key_pair: keypair }
     }
 
-    pub fn sign(&mut self, dataHash: &String) -> String {
-        hex::encode(Wallet::get_keypair(&self.keyPair).sign(dataHash.as_bytes()))
+    pub fn sign(&mut self, data_hash: &String) -> String {
+        hex::encode(Wallet::get_keypair(&self.key_pair).sign(data_hash.as_bytes()))
     }
 
     pub fn get_public_key(&mut self) -> String {
-        hex::encode(Wallet::get_keypair(&self.keyPair).public.as_bytes())
+        hex::encode(Wallet::get_keypair(&self.key_pair).public.as_bytes())
     }
 
     pub fn get_balance<'a>(&mut self, blockchain: &'a mut Blockchain) -> &'a f64 {

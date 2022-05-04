@@ -50,7 +50,7 @@ async fn main() {
         .multiplex(mplex::MplexConfig::new())
         .boxed();
 
-    let mut wallet = Wallet::new();
+    let wallet = Wallet::new();
     // let wallet = Wallet::get_wallet("5ae5066dd048ffb8f8628c44324e63c7b8782a026009a85a96935acb4921abbc5aede624154386ca358af195e13a46981b917ee8279f30a67d7a211a3d3e7243".to_string());
     // let wallet = Wallet::get_wallet("27a23bf39574e86464f4e638241b3ef3dd223d9a30bd97810ff29c992e747e5a230681c76f00b412ccf7757a8449c448a04acd735e497a7612b66d8bfcb8e576".to_string());
     let behaviour = p2p::AppBehaviour::new(
@@ -101,7 +101,7 @@ async fn main() {
                 _ = pos_mining_rcv.recv() => {
                     Some(p2p::EventType::Mining)
                 },
-                event = swarm.select_next_some() => {
+                _ = swarm.select_next_some() => {
                     // info!("Unhandled Swarm Event: {:?}", event);
                     None
                 },

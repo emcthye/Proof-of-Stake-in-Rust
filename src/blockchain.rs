@@ -1,6 +1,5 @@
 use chrono::prelude::*;
-use log::{error, info, warn};
-use serde::{Deserialize, Serialize};
+use log::{info, warn};
 
 use crate::account::Account;
 use crate::block;
@@ -8,7 +7,6 @@ use crate::block::Block;
 use crate::mempool::Mempool;
 use crate::stake::Stake;
 use crate::transaction::*;
-use crate::util::Util;
 use crate::validator::Validator;
 use crate::wallet::Wallet;
 use num_bigint::BigUint;
@@ -132,7 +130,7 @@ impl Blockchain {
             self.chain.len(),
             self.chain.last().unwrap().hash.clone(),
             timestamp,
-            self.mempool.validate_transactions(),
+            self.mempool.transactions.clone(),
             self.get_difficulty(),
             self.wallet.clone(),
         )

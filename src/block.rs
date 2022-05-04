@@ -1,7 +1,7 @@
 use crate::util::Util;
 use crate::wallet::Wallet;
 use crate::{block, transaction::Transaction};
-use log::{error, info, warn};
+use log::info;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -94,7 +94,7 @@ impl Block {
             &block.difficulty,
         );
 
-        Util::verifySignature(&block.validator, &hash, &block.signature)
+        Util::verify_signature(&block.validator, &hash, &block.signature)
     }
 }
 

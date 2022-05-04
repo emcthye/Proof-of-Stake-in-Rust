@@ -9,20 +9,20 @@ impl Util {
         Uuid::new_v4()
     }
 
-    pub fn verifySignature(
-        fromPublicKey: &String,
+    pub fn verify_signature(
+        from_public_key: &String,
         message: &String,
-        fromSignature: &String,
+        from_signature: &String,
     ) -> bool {
-        let publicKey = PublicKey::from_bytes(
-            &hex::decode(fromPublicKey).expect("PublicKey Hex to Byte conversion"),
+        let public_key = PublicKey::from_bytes(
+            &hex::decode(from_public_key).expect("PublicKey Hex to Byte conversion"),
         )
         .unwrap();
         let signature = &Signature::from_bytes(
-            &hex::decode(fromSignature).expect("Signature Hex to Byte conversion"),
+            &hex::decode(from_signature).expect("Signature Hex to Byte conversion"),
         )
         .unwrap();
-        publicKey.verify(message.as_bytes(), signature).is_ok()
+        public_key.verify(message.as_bytes(), signature).is_ok()
     }
 
     pub fn hash(data: &String) -> String {

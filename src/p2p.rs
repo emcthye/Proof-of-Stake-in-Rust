@@ -114,17 +114,17 @@ impl NetworkBehaviourEventProcess<FloodsubEvent> for AppBehaviour {
                 if self.blockchain.chain.last().unwrap().id < block.id
                     && self.blockchain.is_valid_block(block.clone())
                 {
+                    info!("relaying new valid block");
                     let json = serde_json::to_string(&block).expect("can jsonify request");
                     self.floodsub.publish(BLOCK_TOPIC.clone(), json.as_bytes());
                 }
             } else if let Ok(txn) = serde_json::from_slice::<Transaction>(&msg.data) {
                 info!("received new transaction from {}", msg.source.to_string());
 
-                if !self.blockchain.txn_exist(&txn) {
-                    info!("relaying new transaction");
+                if !self.blockchain.txn_exist(&txn) && Transaction::verify_txn(&txn) {
+                    info!("relaying new valid transaction");
                     let json = serde_json::to_string(&txn).expect("can jsonify request");
                     self.floodsub.publish(TXN_TOPIC.clone(), json.as_bytes());
-
                     self.blockchain.add_txn(txn);
                 }
             }

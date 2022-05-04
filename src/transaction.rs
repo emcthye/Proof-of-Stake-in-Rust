@@ -1,7 +1,6 @@
 use crate::util::Util;
 use crate::wallet::Wallet;
 use chrono::prelude::*;
-use ed25519_dalek::{PublicKey, Signature};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -81,7 +80,7 @@ impl Transaction {
     }
 
     pub fn verify_txn(txn: &Transaction) -> bool {
-        Util::verifySignature(
+        Util::verify_signature(
             &txn.txn_input.from,
             &serde_json::to_string(&txn.txn_output).unwrap(),
             &txn.txn_input.signature,
