@@ -112,17 +112,6 @@ impl NetworkBehaviourEventProcess<FloodsubEvent> for AppBehaviour {
                     self.floodsub.publish(TXN_TOPIC.clone(), json.as_bytes());
 
                     self.blockchain.add_txn(txn);
-                    // if self.blockchain.add_txn(txn)
-                    //     && self.blockchain.get_leader() == self.blockchain.wallet.get_public_key()
-                    // {
-                    //     // Threshold reached & selected as validator
-                    //     let new_block = self.blockchain.create_block();
-                    //     info!("broadcasting new block");
-                    //     let json = serde_json::to_string(&new_block).expect("can jsonify request");
-                    //     self.floodsub.publish(BLOCK_TOPIC.clone(), json.as_bytes());
-                    //     // info!("Adding new block to local chain from peer txn");
-                    //     // self.blockchain.chain.push(new_block);
-                    // }
                 }
             }
         }
@@ -193,12 +182,11 @@ pub fn handle_print_stake(swarm: &Swarm<AppBehaviour>) {
 }
 
 pub fn handle_set_wallet(cmd: &str, swarm: &mut Swarm<AppBehaviour>) {
-    let behaviour = swarm.behaviour_mut();
     if let Some(data) = cmd.strip_prefix("set wallet") {
         let arg: Vec<&str> = data.split_whitespace().collect();
         let keyPair = arg.get(0).expect("No keypair found").to_string();
         info!("setting node wallet to {}", keyPair);
-        behaviour.blockchain.wallet = Wallet::get_wallet(keyPair);
+        swarm.behaviour_mut().blockchain.wallet = Wallet::get_wallet(keyPair);
     }
 }
 
@@ -231,6 +219,7 @@ pub fn handle_create_txn(cmd: &str, swarm: &mut Swarm<AppBehaviour>) {
         let behaviour = swarm.behaviour_mut();
 
         let mut wallet = Wallet::get_wallet(keyPair);
+        // let mut wallet = behaviour.blockchain.wallet.clone();
         let txn = Blockchain::create_txn(&mut wallet, to, amount, txn_type);
 
         let json = serde_json::to_string(&txn).expect("can jsonify request");

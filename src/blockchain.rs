@@ -15,7 +15,7 @@ use num_bigint::BigUint;
 use sha256::digest;
 
 const BLOCK_GENERATION_INTERVAL_SECONDS: usize = 30;
-const DIFFICULTY_ADJUSTMENT_INTERVAL_BLOCKS: usize = 1;
+const DIFFICULTY_ADJUSTMENT_INTERVAL_BLOCKS: usize = 2;
 
 pub struct Blockchain {
     pub chain: Vec<Block>,
@@ -28,7 +28,7 @@ pub struct Blockchain {
 
 impl Blockchain {
     pub fn new(wallet: Wallet) -> Self {
-        let genesis = Blockchain::genesis(wallet.clone());
+        let genesis = Block::genesis();
         Self {
             chain: vec![genesis],
             mempool: Mempool::new(),
@@ -52,7 +52,7 @@ impl Blockchain {
         self.mempool.transaction_exists(txn)
     }
 
-    pub fn add_txn(&mut self, txn: Transaction) -> bool {
+    pub fn add_txn(&mut self, txn: Transaction) {
         self.mempool.add_transaction(txn)
     }
 
@@ -61,35 +61,25 @@ impl Blockchain {
         if last_block.id % DIFFICULTY_ADJUSTMENT_INTERVAL_BLOCKS == 0 && last_block.id != 0 {
             let prev_difficulty_block =
                 &self.chain[self.chain.len() - 1 - DIFFICULTY_ADJUSTMENT_INTERVAL_BLOCKS];
-            info!("last block time {}", last_block.timestamp);
-            info!("prev block time {}", prev_difficulty_block.timestamp);
+
             let time_taken = last_block.timestamp - prev_difficulty_block.timestamp;
-            info!("time_taken {}", time_taken);
             let time_expected =
                 DIFFICULTY_ADJUSTMENT_INTERVAL_BLOCKS * BLOCK_GENERATION_INTERVAL_SECONDS;
+
             if time_taken < (time_expected / 2) as i64 {
-                info!("Increase Difficulty");
-                prev_difficulty_block.difficulty + 1
+                last_block.difficulty + 1
             } else if time_taken > (time_expected * 2) as i64 {
-                info!("Decrease Difficulty");
-                if prev_difficulty_block.difficulty <= 1 {
+                if last_block.difficulty <= 1 {
                     1
                 } else {
-                    prev_difficulty_block.difficulty - 1
+                    last_block.difficulty - 1
                 }
             } else {
-                info!("Maintain Difficulty");
-                prev_difficulty_block.difficulty
+                last_block.difficulty
             }
         } else {
-            info!("Reuse Difficulty");
             last_block.difficulty
         }
-    }
-
-    pub fn genesis(wallet: Wallet) -> Block {
-        info!("Creating genesis block...");
-        Block::new(0, String::from("genesis"), 1650205976, vec![], 5, wallet)
     }
 
     pub fn mine_block_by_stake(&mut self) -> Option<Block> {
@@ -107,7 +97,7 @@ impl Blockchain {
         info!("Mining new block with difficulty {}", difficulty);
 
         let timestamp = Utc::now().timestamp();
-        let previous_hash = self.chain.last().unwrap().previous_hash.clone();
+        let previous_hash = self.chain.last().unwrap().hash.clone();
         let address = self.wallet.get_public_key();
 
         if Blockchain::is_staking_valid(balance, difficulty, timestamp, &previous_hash, &address) {
@@ -127,22 +117,10 @@ impl Blockchain {
         let base = BigUint::new(vec![2]);
         let big_balance_diff_mul = base.pow(256) * balance as u32;
         let big_balance_diff = big_balance_diff_mul / difficulty as u64;
-        // println!("big_balance_diff {:?}", big_balance_diff);
 
         let data_str = format!("{}{}{}", previous_hash, address, timestamp.to_string());
-        println!(
-            "previous_hash: {} address: {} timestamp: {}",
-            previous_hash,
-            address,
-            timestamp.to_string()
-        );
-
         let sha256_hash = digest(data_str);
-
-        println!("sha256_hash {}", sha256_hash);
-
         let decimal_staking_hash = BigUint::parse_bytes(&sha256_hash.as_bytes(), 16).expect("msg");
-        println!("decimalStakingHash {:?}", decimal_staking_hash);
 
         decimal_staking_hash <= big_balance_diff
     }
@@ -176,6 +154,8 @@ impl Blockchain {
                 &block.timestamp,
                 &block.previous_hash,
                 &block.txn,
+                &block.validator,
+                &block.difficulty,
             )
         {
             warn!("block with id: {} has invalid hash", block.id);
@@ -239,7 +219,7 @@ impl Blockchain {
     }
 
     pub fn is_valid_chain(&mut self, chain: &Vec<Block>) -> bool {
-        if *chain.first().unwrap() != Blockchain::genesis(self.wallet.clone()) {
+        if *chain.first().unwrap() != Block::genesis() {
             return false;
         }
 
@@ -266,7 +246,7 @@ impl Blockchain {
     }
 
     pub fn reset_state(&mut self) {
-        let genesis = Blockchain::genesis(self.wallet.clone());
+        let genesis = Block::genesis();
         self.chain = vec![genesis];
         self.accounts = Account::new();
         self.stakes = Stake::new();
@@ -316,79 +296,4 @@ impl Blockchain {
     pub fn get_balance(&mut self, public_key: &String) -> &f64 {
         self.accounts.get_balance(public_key)
     }
-
-    // -------- Old
-
-    // pub fn try_add_block(&mut self, block: Block) {
-    //     let latest_block = self.chain.last().expect("there is at least one block");
-    //     if self.is_block_valid(&block, latest_block) {
-    //         self.chain.push(block);
-    //     } else {
-    //         error!("could not add block - invalid");
-    //     }
-    // }
-
-    // pub fn is_block_valid(&self, block: &Block, previous_block: &Block) -> bool {
-    //     if block.previous_hash != previous_block.hash {
-    //         warn!("block with id: {} has wrong previous hash", block.id);
-    //         return false;
-    //     } else if !Util::hash_to_binary_representation(
-    //         &hex::decode(&block.hash).expect("can decode from hex"),
-    //     )
-    //     .starts_with(block::DIFFICULTY_PREFIX)
-    //     {
-    //         warn!("block with id: {} has invalid difficulty", block.id);
-    //         return false;
-    //     } else if block.id != previous_block.id + 1 {
-    //         warn!(
-    //             "block with id: {} is not the next block after the latest: {}",
-    //             block.id, previous_block.id
-    //         );
-    //         return false;
-    //     } else if hex::encode(block::calculate_hash(
-    //         &block.id,
-    //         &block.timestamp,
-    //         &block.previous_hash,
-    //         &block.txn,
-    //     )) != block.hash
-    //     {
-    //         warn!("block with id: {} has invalid hash", block.id);
-    //         return false;
-    //     }
-    //     true
-    // }
-
-    // pub fn is_chain_valid(&self, chain: &[Block]) -> bool {
-    //     for i in 0..chain.len() {
-    //         if i == 0 {
-    //             continue;
-    //         }
-    //         let first = chain.get(i - 1).expect("has to exist");
-    //         let second = chain.get(i).expect("has to exist");
-    //         if !self.is_block_valid(second, first) {
-    //             return false;
-    //         }
-    //     }
-    //     true
-    // }
-
-    // We always choose the longest valid chain
-    // pub fn choose_chain(&mut self, local: Vec<Block>, remote: Vec<Block>) -> Vec<Block> {
-    //     let is_local_valid = self.is_chain_valid(&local);
-    //     let is_remote_valid = self.is_chain_valid(&remote);
-
-    //     if is_local_valid && is_remote_valid {
-    //         if local.len() >= remote.len() {
-    //             local
-    //         } else {
-    //             remote
-    //         }
-    //     } else if is_remote_valid && !is_local_valid {
-    //         remote
-    //     } else if !is_remote_valid && is_local_valid {
-    //         local
-    //     } else {
-    //         panic!("local and remote chains are both invalid");
-    //     }
-    // }
 }

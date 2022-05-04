@@ -1,7 +1,5 @@
 use crate::transaction::Transaction;
 
-const TRANSACTION_THRESHOLD: usize = 1;
-
 pub struct Mempool {
     pub transactions: Vec<Transaction>,
 }
@@ -13,13 +11,8 @@ impl Mempool {
         }
     }
 
-    fn threshold_reached(&mut self) -> bool {
-        self.transactions.len() >= TRANSACTION_THRESHOLD
-    }
-
-    pub fn add_transaction(&mut self, txn: Transaction) -> bool {
+    pub fn add_transaction(&mut self, txn: Transaction) {
         self.transactions.push(txn);
-        self.threshold_reached()
     }
 
     pub fn validate_transactions(&mut self) -> Vec<Transaction> {

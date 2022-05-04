@@ -35,9 +35,15 @@ impl Block {
         difficulty: u32,
         mut validator_wallet: Wallet,
     ) -> Self {
-        info!("creating block...");
-        let hash = block::calculate_hash(&id, &timestamp, &previous_hash, &txn);
-        // let validator = ;
+        let validator = validator_wallet.get_public_key();
+        let hash = block::calculate_hash(
+            &id,
+            &timestamp,
+            &previous_hash,
+            &txn,
+            &validator,
+            &difficulty,
+        );
         let signature = validator_wallet.sign(&hash);
         Self {
             id,
@@ -45,25 +51,51 @@ impl Block {
             previous_hash,
             timestamp,
             txn,
-            validator: validator_wallet.get_public_key(),
-            signature: signature,
-            difficulty: difficulty,
+            validator,
+            signature,
+            difficulty,
+        }
+    }
+
+    pub fn genesis() -> Self {
+        let id = 0;
+        let timestamp = 1650205976;
+        let previous_hash = String::from("genesis");
+        let txn = vec![];
+        let validator = String::from("genesis");
+        let signature = String::from("genesis");
+        let difficulty = 5;
+
+        let hash = block::calculate_hash(
+            &id,
+            &timestamp,
+            &previous_hash,
+            &txn,
+            &validator,
+            &difficulty,
+        );
+
+        Self {
+            id,
+            hash,
+            previous_hash,
+            timestamp,
+            txn,
+            validator,
+            signature,
+            difficulty,
         }
     }
 
     pub fn verify_block_signature(block: &Block) -> bool {
         info!("verifying block...");
-        // let data = serde_json::json!({
-        //     "id": block.id,
-        //     "previous_hash": ,
-        //     "transactions": ,
-        //     "timestamp":
-        // });
         let hash = block::calculate_hash(
             &block.id,
             &block.timestamp,
             &block.previous_hash,
             &block.txn,
+            &block.validator,
+            &block.difficulty,
         );
 
         Util::verifySignature(&block.validator, &hash, &block.signature)
@@ -75,13 +107,17 @@ pub fn calculate_hash(
     timestamp: &i64,
     previous_hash: &str,
     txn: &Vec<Transaction>,
+    validator: &String,
+    difficulty: &u32,
 ) -> String {
     info!("calculating hash...");
     let hash = serde_json::json!({
         "id": id,
         "previous_hash": previous_hash,
         "transactions": txn,
-        "timestamp": timestamp
+        "timestamp": timestamp,
+        "validator": validator,
+        "difficulty": difficulty,
     });
 
     Util::hash(&hash.to_string())

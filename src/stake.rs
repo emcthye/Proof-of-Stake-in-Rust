@@ -22,7 +22,7 @@ impl Stake {
                 ),
                 (
                     "5aede624154386ca358af195e13a46981b917ee8279f30a67d7a211a3d3e7243".to_string(),
-                    100,
+                    2,
                 ),
             ]),
         }
