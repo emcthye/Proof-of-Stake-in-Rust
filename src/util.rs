@@ -1,4 +1,5 @@
 use ed25519_dalek::{PublicKey, Signature, Verifier};
+use hex::FromHexError;
 use sha256::digest_bytes;
 use uuid::Uuid;
 
@@ -13,16 +14,23 @@ impl Util {
         from_public_key: &String,
         message: &String,
         from_signature: &String,
-    ) -> bool {
-        let public_key = PublicKey::from_bytes(
-            &hex::decode(from_public_key).expect("PublicKey Hex to Byte conversion"),
-        )
-        .unwrap();
-        let signature = &Signature::from_bytes(
-            &hex::decode(from_signature).expect("Signature Hex to Byte conversion"),
-        )
-        .unwrap();
-        public_key.verify(message.as_bytes(), signature).is_ok()
+    ) -> Result<bool, FromHexError> {
+        let public_key = match hex::decode(from_public_key) {
+            Ok(public_key) => public_key,
+            Err(e) => return Err(e),
+        };
+        let dalek_public_key = PublicKey::from_bytes(&public_key);
+
+        let signature = match hex::decode(from_signature) {
+            Ok(signature) => signature,
+            Err(e) => return Err(e),
+        };
+
+        let dalek_signature = &Signature::from_bytes(&signature);
+
+        Ok(dalek_public_key
+            .verify(message.as_bytes(), dalek_signature)
+            .is_ok())
     }
 
     pub fn hash(data: &String) -> String {
