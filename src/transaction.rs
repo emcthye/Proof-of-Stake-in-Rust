@@ -66,24 +66,37 @@ impl Transaction {
         to: String,
         amount: f64,
         txn_type: TransactionType,
-    ) -> Self {
+    ) -> Result<Self, serde_json::Error> {
         let txn_output = TransactionOutput::new(to, amount, TRANSACTION_FEE);
-        let serialized = serde_json::to_string(&txn_output).unwrap();
+        let serialized = match serde_json::to_string(&txn_output) {
+            Ok(serialized) => serialized,
+            Err(e) => return Err(e),
+        };
         let txn_input = TransactionInput::new(sender_wallet, &serialized);
 
-        Self {
+        Ok(Self {
             id: Util::id(),
             txn_type: txn_type,
             txn_output: txn_output,
             txn_input: txn_input,
-        }
+        })
     }
 
-    pub fn verify_txn(txn: &Transaction) -> bool {
-        Util::verify_signature(
+    pub fn verify_txn(txn: &Transaction) -> Result<bool, serde_json::Error> {
+        let txn_message = match serde_json::to_string(&txn.txn_output) {
+            Ok(txn_message) => txn_message,
+            Err(e) => return Err(e),
+        };
+
+        let result = match Util::verify_signature(
             &txn.txn_input.from,
-            &serde_json::to_string(&txn.txn_output).unwrap(),
+            &txn_message,
             &txn.txn_input.signature,
-        )
+        ) {
+            Ok(result) => result,
+            Err(e) => return Err(e),
+        };
+
+        Ok(result)
     }
 }
