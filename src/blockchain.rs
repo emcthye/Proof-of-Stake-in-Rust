@@ -42,7 +42,7 @@ impl Blockchain {
         to: String,
         amount: f64,
         txn_type: TransactionType,
-    ) -> Transaction {
+    ) -> Result<Transaction, serde_json::Error> {
         Transaction::new(sender_wallet, to, amount, txn_type)
     }
 

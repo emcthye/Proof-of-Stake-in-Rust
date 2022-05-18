@@ -1,4 +1,4 @@
-use crate::util::Util;
+use crate::util::{Util, VerifySigErr};
 use crate::wallet::Wallet;
 use chrono::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -60,6 +60,11 @@ impl PartialEq for Transaction {
     }
 }
 
+pub enum VerifyTxnError {
+    DecodeJsonErr(serde_json::Error),
+    VerifySigErr(VerifySigErr),
+}
+
 impl Transaction {
     pub fn new(
         sender_wallet: &mut Wallet,
@@ -82,10 +87,10 @@ impl Transaction {
         })
     }
 
-    pub fn verify_txn(txn: &Transaction) -> Result<bool, serde_json::Error> {
+    pub fn verify_txn(txn: &Transaction) -> Result<bool, VerifyTxnError> {
         let txn_message = match serde_json::to_string(&txn.txn_output) {
             Ok(txn_message) => txn_message,
-            Err(e) => return Err(e),
+            Err(e) => return Err(VerifyTxnError::DecodeJsonErr(e)),
         };
 
         let result = match Util::verify_signature(
@@ -94,7 +99,10 @@ impl Transaction {
             &txn.txn_input.signature,
         ) {
             Ok(result) => result,
-            Err(e) => return Err(e),
+            Err(e) => match e {
+                VerifySigErr::DecodeStrError(_) => false,
+                VerifySigErr::DecodeHexError(_) => false,
+            },
         };
 
         Ok(result)

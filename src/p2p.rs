@@ -88,7 +88,7 @@ impl NetworkBehaviourEventProcess<FloodsubEvent> for AppBehaviour {
                     self.blockchain.mempool.transactions = resp
                         .txns
                         .into_iter()
-                        .filter(|txn| Transaction::verify_txn(txn))
+                        .filter(|txn| Transaction::verify_txn(txn).is_ok())
                         .collect();
                 }
             } else if let Ok(resp) = serde_json::from_slice::<ChainRequest>(&msg.data) {
@@ -121,7 +121,7 @@ impl NetworkBehaviourEventProcess<FloodsubEvent> for AppBehaviour {
             } else if let Ok(txn) = serde_json::from_slice::<Transaction>(&msg.data) {
                 info!("received new transaction from {}", msg.source.to_string());
 
-                if !self.blockchain.txn_exist(&txn) && Transaction::verify_txn(&txn) {
+                if !self.blockchain.txn_exist(&txn) && Transaction::verify_txn(&txn).is_ok() {
                     info!("relaying new valid transaction");
                     let json = serde_json::to_string(&txn).expect("can jsonify request");
                     self.floodsub.publish(TXN_TOPIC.clone(), json.as_bytes());
@@ -247,14 +247,20 @@ pub fn handle_create_txn(cmd: &str, swarm: &mut Swarm<AppBehaviour>) {
             return;
         }
 
-        let txn = Blockchain::create_txn(&mut wallet, to, amount, txn_type);
-        let json = serde_json::to_string(&txn).expect("can jsonify request");
+        match Blockchain::create_txn(&mut wallet, to, amount, txn_type) {
+            Ok(txn) => {
+                let json = serde_json::to_string(&txn).expect("can jsonify request");
 
-        info!("Adding new transaction to mempool");
-        behaviour.blockchain.mempool.add_transaction(txn);
-        info!("Broadcasting new transaction");
-        behaviour
-            .floodsub
-            .publish(TXN_TOPIC.clone(), json.as_bytes());
+                info!("Adding new transaction to mempool");
+                behaviour.blockchain.mempool.add_transaction(txn);
+                info!("Broadcasting new transaction");
+                behaviour
+                    .floodsub
+                    .publish(TXN_TOPIC.clone(), json.as_bytes());
+            }
+            Err(_) => {
+                warn!("Failed to create transaction: Unable to serialized transactions into json");
+            }
+        };
     }
 }

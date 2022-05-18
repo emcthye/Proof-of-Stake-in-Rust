@@ -20,7 +20,7 @@ impl Mempool {
     pub fn validate_transactions(&mut self) -> Vec<Transaction> {
         self.transactions
             .drain(..)
-            .filter(|txn| Transaction::verify_txn(txn))
+            .filter(|txn| Transaction::verify_txn(txn).is_ok())
             .collect()
     }
 

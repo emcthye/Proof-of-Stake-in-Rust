@@ -94,7 +94,7 @@ impl Block {
             &block.difficulty,
         );
 
-        Util::verify_signature(&block.validator, &hash, &block.signature)
+        Util::verify_signature(&block.validator, &hash, &block.signature).is_ok()
     }
 }
 
