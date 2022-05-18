@@ -17,13 +17,6 @@ impl Mempool {
         self.transactions.push(txn);
     }
 
-    pub fn validate_transactions(&mut self) -> Vec<Transaction> {
-        self.transactions
-            .drain(..)
-            .filter(|txn| Transaction::verify_txn(txn).is_ok())
-            .collect()
-    }
-
     pub fn transaction_exists(&mut self, txn: &Transaction) -> bool {
         self.transactions.contains(txn)
     }
