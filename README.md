@@ -1,4 +1,4 @@
-# rust-blockchain-example
+# Building Proof of Stake in Rust
 
 Simple example for building a blockchain in Rust
 
