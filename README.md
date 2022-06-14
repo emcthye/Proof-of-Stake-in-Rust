@@ -1,6 +1,6 @@
 # Building Proof of Stake in Rust
 
-A tutorial for building a Proof of Stake blockchain in Rust: https://medium.com/@emcthye/e76c51f593e9
+A tutorial for building a Proof of Stake blockchain in Rust: https://medium.com/emcthye/e76c51f593e9
 
 Start using
 
